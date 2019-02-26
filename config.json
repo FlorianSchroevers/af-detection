@@ -1,0 +1,65 @@
+{
+    "data_loading_location": "data/processed_data/",
+    "data_saving_location_fe": "data/feature_data/",
+    "processed_data_saving_location": "data/processed_data/",
+    "raw_data_location": "data/raw_data/",
+    "model_save_name": "m.h5",
+    "progress_bar_style": "serious",
+    "t_width": 80,
+    "verbosity": true,
+    "nn_input_size": 80,
+    "lead": 1,
+    "save_on_train": true,
+    "layers": [
+        {
+                "type": "dense",
+                "nodes": 1024,
+                "dropout": 0.1,
+                "activation": "relu"
+        },
+        {
+                "type": "dense",
+                "nodes": 512,
+                "dropout": 0.1,
+                "activation": "relu"
+        },
+        {
+                "type": "dense",
+                "nodes": 256,
+                "dropout": 0.1,
+                "activation": "relu"
+        },
+        {
+                "type": "dense",
+                "nodes": 128,
+                "dropout": 0.2,
+                "activation": "linear"
+        },
+        {
+                "type": "dense",
+                "nodes": 64,
+                "dropout": 0.3,
+                "activation": "linear"
+        },
+        {
+                "type": "dense",
+                "nodes": 32,
+                "dropout": 0.4,
+                "activation": "linear"
+        },
+        {
+                "type": "dense",
+                "nodes": 16,
+                "dropout": 0.5,
+                "activation": "linear"
+        }
+    ],
+    "output_layer":{
+        "type": "dense",
+        "activation": "sigmoid"
+    },
+    "learning_rate":0.0001,
+    "decay":0.00001,
+    "batch_size":32,
+    "epochs":1
+}

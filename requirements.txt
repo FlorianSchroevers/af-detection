@@ -1,0 +1,12 @@
+numpy
+pandas
+sklearn
+keras
+matplotlib
+scipy
+biosppy
+unicodedata
+sympy
+json
+types
+
