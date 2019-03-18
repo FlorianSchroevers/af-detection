@@ -173,7 +173,7 @@ def get_feat_data(df):
 
     return features, targets
 
-def get_data(n_files=None, split=False, channels=None, norm=False, exclude_targets=[], return_fnames=False, randomize_order=True, verbose=False, extension='.csv', n_points=5000):
+def get_data(n_files=None, split=False, channels=None, norm=False, exclude_targets=[], return_fnames=False, randomize_order=True, extension='.csv', n_points=5000):
     """ function: get_data
 
     returns data in the directory specified in the helpers.py file
@@ -212,7 +212,7 @@ def get_data(n_files=None, split=False, channels=None, norm=False, exclude_targe
         files : list [optional]
             a list of all files
     """
-    if verbose:
+    if cfg.verbosity:
         print("Assembling data from files...")
         start = time.time()
 
@@ -331,9 +331,9 @@ def get_data(n_files=None, split=False, channels=None, norm=False, exclude_targe
         # set target variable (by id, see ydict above)
         data_y[i] = y_dict[fname[24:27]]
 
-        if verbose:
+        if cfg.verbosity:
             progress_bar("Load ECG", i, n_files)
-    if verbose:
+    if cfg.verbosity:
         print('Done, took ' + str(round(time.time() - start, 1)) + ' seconds')
     if return_fnames:
         # specified by args

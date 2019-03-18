@@ -206,7 +206,7 @@ def fourier_straighten(signal, resolution=20):
     corrected_ecg = np.subtract(signal, baseline)
     return corrected_ecg
 
-def preprocess_data(data_x, smooth_window_size=51, smooth_order=4, fourier_baseline_resolution=20, verbose=False):
+def preprocess_data(data_x, smooth_window_size=51, smooth_order=4, fourier_baseline_resolution=20):
     """ function: preprocess_data
 
     preprocess the data by smoothing and straightening.
@@ -214,15 +214,13 @@ def preprocess_data(data_x, smooth_window_size=51, smooth_order=4, fourier_basel
     Args:
         data_x : np.ndarray
             the data to preprocess.
-        verbose : bool [optional, default: False]
-            the verbosity of the function
     Returns:
         p_data_x : np.ndarray
             preprocessed data
     """
     assert data_x.ndim == 3
 
-    if verbose:
+    if cfg.verbosity:
         print("Preprocessing data...")
         start = time.time()
 
@@ -240,9 +238,9 @@ def preprocess_data(data_x, smooth_window_size=51, smooth_order=4, fourier_basel
                 resolution = fourier_baseline_resolution
             )
             p_data_x[i, :, channel] = prepped_channel
-        if verbose:
+        if cfg.verbosity:
             progress_bar("Processed", i, data_x.shape[0])
-    if verbose:
+    if cfg.verbosity:
         print('\nDone, took ' + str(round(time.time() - start, 1)) + ' seconds')
     return p_data_x
 
@@ -293,7 +291,7 @@ def pulse_scale(pulse, target_size):
     return interp_function(np.linspace(0, pulse.size-1, target_size))
 
 
-def extract_windows(data_x, data_y, pulse_size=0, verbose=False):
+def extract_windows(data_x, data_y, pulse_size=0):
     """ function : extract_windows
 
     extract all pulses from an ecg and scale them to a given size
@@ -305,8 +303,6 @@ def extract_windows(data_x, data_y, pulse_size=0, verbose=False):
             an array of targets of the ECG's
         pulse_size : int [optional, default: 80]
             the size to scale the pulses to
-        verbose : bool [optional, default: False]
-            the verbosity of the function
     Returns:
         pulse_data_x : np.ndarray
             an array of pulses
@@ -317,7 +313,7 @@ def extract_windows(data_x, data_y, pulse_size=0, verbose=False):
     if not pulse_size:
         pulse_size = cfg.nn_input_size
 
-    if verbose:
+    if cfg.verbosity:
         start = time.time()
         print("Extracting and scaling pulses from ECG's...")
     n_samples, n_points, n_channels = data_x.shape
@@ -331,27 +327,32 @@ def extract_windows(data_x, data_y, pulse_size=0, verbose=False):
             signal = signal[rpeaks[0]:rpeaks[-1]]
             rpeaks = np.subtract(rpeaks, rpeaks[0])
             # the distance from the r peak (in both directions) to take a window from
-            mean_rpeak_distance = int(np.mean(np.diff(rpeaks))/2)
-            for rpeak_n in range(1, len(rpeaks)-1):
-                pulse_start_index = int((rpeaks[rpeak_n] - mean_rpeak_distance))
-                pulse_end_index = int((rpeaks[rpeak_n] + mean_rpeak_distance))
-                pulse = signal[pulse_start_index:pulse_end_index]
+            # mean_rpeak_distance = int(np.mean(np.diff(rpeaks))/2)
+            for rpeak_n in range(len(rpeaks) - 1):
+                pulse = signal[rpeaks[rpeak_n]:rpeaks[rpeak_n + 1]]
+                # pulse_start_index = int((rpeaks[rpeak_n] - mean_rpeak_distance))
+                # pulse_end_index = int((rpeaks[rpeak_n] + mean_rpeak_distance))
+                # pulse = signal[pulse_start_index:pulse_end_index]
 
                 # some pulses result in errors, we simpy ignore them
+                # NOTE: this may cause bias in the model
                 try:
                     # scale the data
                     pulse = pulse_scale(pulse, pulse_size)
                 except:
                     continue
 
+                # plt.plot(pulse)
+                # plt.show()
+
                 # add to new array
                 pulses[pulse_n, :, channel] = pulse
                 pulse_targets[pulse_n] = data_y[i]
 
                 pulse_n += 1
-        if verbose:
+        if cfg.verbosity:
             progress_bar("Extraced pulses from ECG", i, n_samples)
-    if verbose:
+    if cfg.verbosity:
         print('Done, took ' + str(round(time.time() - start, 1)) + ' seconds')
 
     # make sure the data is of the correct length

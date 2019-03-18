@@ -4,17 +4,14 @@ Deep Learning based Cardiology AI to predict Atrial Fibrillation in ECG data
 ## Authors
 
 Florian Schroevers  
-Abel Oakley  
-Christopher Madsen  
-Flavio Miceli  
-Joris Galema
+Abel Oakley
 
 ## Files
 
 ### `global_params.py`
 
 	Description:
-		Before any code is run, the parameters in this file should be set.
+		Loads the parameters set in the 'config.json' file.
 
 ---
 
@@ -32,6 +29,22 @@ Functions:
 			Runs the whole process as specified above
 		Args:
 		Returns:
+
+---
+
+### `main.py`
+
+    Description:
+        Loads the model and gives prediction for an ecg selected by the user
+
+Functions:
+
+* `main`
+
+        Description:
+            Runs the whole process as specified above
+        Args:
+        Returns:
 
 ---
 
@@ -68,7 +81,7 @@ Functions:
 * `get_ecg_fnames`:
 
 		Description:
-        	Returns a list of filenames which are ecg's for a given patient
+        	returns a list of filenames which are ecg's for a given patient
         Args:
             patient_id : str
                 the id of the patient
@@ -78,7 +91,7 @@ Functions:
 * `get_times`:
 
 		Description:
-        	Returns a list of times at which ecg's for a given patient are taken
+        	returns a list of times at which ecg's for a given patient are taken
         Args:
             patient_id : str
                 the id of the patient
@@ -88,7 +101,7 @@ Functions:
 * `get_gender`:
 
 		Description:
-        	Returns a the gender of the given patient
+        	returns a the gender of the given patient
         Args:
             patient_id : str
                 the id of the patient
@@ -98,7 +111,7 @@ Functions:
 * `get_time_rythm_mapping`:
 
 		Description:
-        	Returns a dict mapping the times to the rythm at that time for a given patient
+        	returns a dict mapping the times to the rythm at that time for a given patient
         Args:
             patient_id : str
                 the id of the patient
@@ -108,7 +121,7 @@ Functions:
 * `get_time_fname_mapping`:
 
 		Description:
-        	Returns a dict mapping the times to the filename of the ecg taken at
+        	returns a dict mapping the times to the filename of the ecg taken at
             that time for a given patient
         Args:
             data_id : str
@@ -271,8 +284,6 @@ Functions:
         Args:
             data_x : np.ndarray
                 the data to preprocess.
-            verbose : bool [optional, default: False]
-                the verbosity of the function
         Returns:
             p_data_x : np.ndarray
                 preprocessed data
@@ -316,8 +327,6 @@ Functions:
                 an array of targets of the ECG's
             pulse_size : int [optional, default: 80]
                 the size to scale the pulses to
-            verbose : bool [optional, default: False]
-                the verbosity of the function
         Returns:
             pulse_data_x : np.ndarray
                 an array of pulses
@@ -376,7 +385,7 @@ Functions:
 		Description:
         	Detects P-peaks in an ECG by looking for max values inside windows between
             the R-peaks, but takes the T-peak into regard as well as missing P-peaks.
-            Returns the amount of P-peaks and a number between 0 and 1 representing the
+            returns the amount of P-peaks and a number between 0 and 1 representing the
             relation between the mean of the P-peaks and the mean of the R-peaks.
         Args:
             data_x : np.ndarray
@@ -423,8 +432,6 @@ Functions:
             fourier_resolution : int [optional, default: 600]
                 the amount of coefficients to return. the higher the resolution the
                 higher the fidelity of the reconstructed wave
-            verbose : bool [optional, default: False]
-                the verbosity of the function
             save_to_file : str [optional, default: '']
                 saves to this file if the length of this string > 0, with this as
                 filename
@@ -458,6 +465,8 @@ Functions:
             tvt_split : list
                 a list with three floats that represent the fraction of the size of
                 the training, validation and test (tvt) sets respectively
+            equal_split_test : bool
+                whether to split the test set 50/50
         Returns:
             train_x : dict
                 a dict containing the data of this set with input name as key and

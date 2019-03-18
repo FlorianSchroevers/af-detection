@@ -184,7 +184,7 @@ def load_extracted_features(fname):
     """
     return pd.read_csv(cfg.data_saving_location_fe + fname, index_col=0)
 
-def extract_features(data_x, data_y, smooth=False, fourier_resolution=600, verbose=False, save_to_file=''):
+def extract_features(data_x, data_y, smooth=False, fourier_resolution=600, save_to_file=''):
     """ function: extract_features
 
     creates a dataframe from a given collection of ecgs containing the fourier
@@ -201,8 +201,6 @@ def extract_features(data_x, data_y, smooth=False, fourier_resolution=600, verbo
         fourier_resolution : int [optional, default: 600]
             the amount of coefficients to return. the higher the resolution the
             higher the fidelity of the reconstructed wave
-        verbose : bool [optional, default: False]
-            the verbosity of the function
         save_to_file : str [optional, default: '']
             saves to this file if the length of this string > 0, with this as
             filename
@@ -215,7 +213,7 @@ def extract_features(data_x, data_y, smooth=False, fourier_resolution=600, verbo
         data_x = np.expand_dims(data_x, 0)
     if data_x.ndim == 2:
         data_x = np.expand_dims(data_x, 0)
-    if verbose:
+    if cfg.verbosity:
         print("Extracting fourier series coefficients and other features...")
         start = time.time()
 
@@ -244,9 +242,9 @@ def extract_features(data_x, data_y, smooth=False, fourier_resolution=600, verbo
         ])
 
         df = df.append(pd.Series(features, index=columns), ignore_index=True)
-        if verbose:
+        if cfg.verbosity:
             progress_bar("Extracting features from ECG/pulse", i, data_x.shape[0])
-    if verbose:
+    if cfg.verbosity:
         print('Done, took ' + str(round(time.time() - start, 1)) + ' seconds')
 
     if save_to_file:

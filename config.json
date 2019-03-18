@@ -9,6 +9,10 @@
     "verbosity": true,
     "nn_input_size": 80,
     "lead": 1,
+    "equal_split_test": false,
+    "tvt_split": [0.6, 0.3, 0.1],
+    "training_batch_size": 32,
+    "evaluation_batch_size": 32,
     "save_on_train": true,
     "layers": [
         {
@@ -61,5 +65,5 @@
     "learning_rate":0.0001,
     "decay":0.00001,
     "batch_size":32,
-    "epochs":1
+    "epochs":32
 }

@@ -15,7 +15,7 @@ from keras.models import load_model
 
 import numpy as np
 
-def prepare_train_val_data(data_x, data_y, feature_data=None, tvt_split=[0.6, 0.25, 0.15]):
+def prepare_train_val_data(data_x, data_y, feature_data=None, tvt_split=[0.6, 0.3, 0.1], equal_split_test=False):
     """ function : prepare_train_val_data
 
     splits the data in a training, validation and test set, while maintaining a
@@ -32,6 +32,8 @@ def prepare_train_val_data(data_x, data_y, feature_data=None, tvt_split=[0.6, 0.
         tvt_split : list
             a list with three floats that represent the fraction of the size of
             the training, validation and test (tvt) sets respectively
+        equal_split_test : bool
+                whether to split the test set 50/50
     Returns:
         train_x : dict
             a dict containing the data of this set with input name as key and
@@ -54,6 +56,7 @@ def prepare_train_val_data(data_x, data_y, feature_data=None, tvt_split=[0.6, 0.
     data_len = data_x.shape[0]
 
     # make sure the tvt split adds up to one so all the data will be used
+    tvt_split = cfg.tvt_split
     if np.sum(tvt_split) != 1:
         tvt_split = np.divide(np.array(tvt_split), np.sum(tvt_split))
 
@@ -61,29 +64,40 @@ def prepare_train_val_data(data_x, data_y, feature_data=None, tvt_split=[0.6, 0.
     healthy_idx = np.array([i for i in range(data_len) if data_y[i] == 0])
     unhealthy_idx = np.array([i for i in range(data_len) if data_y[i] != 0])
 
-    # get the real size of the tvt sets based on the fractions specified by tvt_split
-    n_train, n_validation, n_test = np.multiply(np.array(tvt_split), data_len).astype(int)
-
     # shuffle them so the function will return different ecg's every time
     np.random.shuffle(healthy_idx)
     np.random.shuffle(unhealthy_idx)
 
+    # to make sure the split is 50/50, we maximize the amount of samples to the 
+    # smallest of the lengths of the two sets
+    data_len = min(len(healthy_idx), len(unhealthy_idx))
+
+    # get the real size of the tvt sets based on the fractions specified by tvt_split
+    n_train, n_validation, n_test = np.multiply(np.array(tvt_split), data_len).astype(int)
+
     # set the indices of the samples each of the tvt sets should take in
     # each set will hold about 50/50 healthy and unhealthy ecg's
     train_idx = np.concatenate([
-        healthy_idx[:int(n_train/2)],
-        unhealthy_idx[:int(n_train/2)]
+        healthy_idx[:n_train],
+        unhealthy_idx[:n_train]
     ])
 
     validation_idx = np.concatenate([
-        healthy_idx[int(n_train/2):-int(n_test/2)],
-        unhealthy_idx[int(n_train/2):-int(n_test/2)]
+        healthy_idx[n_train:n_train + n_validation],
+        unhealthy_idx[n_train:n_train + n_validation]
     ])
 
-    test_idx = np.concatenate([
-        healthy_idx[-int(n_test/2):],
-        unhealthy_idx[-int(n_test/2):]
-    ])
+    if cfg.equal_split_test:
+        test_idx = np.concatenate([
+            healthy_idx[n_train + n_validation:n_train + n_validation + n_test],
+            unhealthy_idx[n_train + n_validation:n_train + n_validation + n_test]
+        ])
+    else:
+        test_idx = np.concatenate([
+            healthy_idx[n_train + n_validation:],
+            unhealthy_idx[n_train + n_validation:]
+        ])
+        test_idx = test_idx[:n_test]
 
     np.random.shuffle(train_idx)
     np.random.shuffle(validation_idx)
@@ -117,6 +131,10 @@ def prepare_train_val_data(data_x, data_y, feature_data=None, tvt_split=[0.6, 0.
         train_x["features_inp"] = fe_train_x
         validation_x["features_inp"] = fe_validation_x
         test_x["features_inp"] = fe_test_x
+
+    train_x = np.squeeze(train_x["ecg_inp"])
+    validation_x = np.squeeze(validation_x["ecg_inp"])
+    test_x = np.squeeze(test_x["ecg_inp"])
 
     return train_x, train_y, validation_x, validation_y, test_x, test_y
 
@@ -268,8 +286,8 @@ def train(model, train_x, y_train, x_val, y_val, batch_size=32, epochs=32, save=
     history = model.fit(
             x = train_x,
             y = y_train,
-            batch_size = cfg.batch_size,
-            epochs = cfg.epochs,
+            batch_size = batch_size,
+            epochs = epochs,
             validation_data = (x_val, y_val)
         )
 
@@ -338,7 +356,6 @@ def evaluate_model(n_ecgs=None, threshold=2):
     """
     data_x, targets, fnames = dgen.get_data(
         n_files = n_ecgs,
-        verbose = verbose,
         return_fnames = True,
         channels = np.array([0]),
         norm = True,
@@ -347,12 +364,12 @@ def evaluate_model(n_ecgs=None, threshold=2):
     model = load_model(cfg.model_save_name, custom_objects={'precision':precision, 'recall':recall})
     n_correct = 0
 
-    if verbose:
+    if cfg.verbosity:
         print("Evaluating model with ECG's")
         start = time.time()
 
     for i, ecg in enumerate(data_x):
-        pulse_data_x, pulse_data_y = dprep.extract_windows(np.expand_dims(ecg, axis=0), np.array([targets[i]]), verbose=False)
+        pulse_data_x, pulse_data_y = dprep.extract_windows(np.expand_dims(ecg, axis=0), np.array([targets[i]]))
 
         nn_pulse_data_x = {"ecg_inp": np.squeeze(pulse_data_x)}
 
@@ -362,7 +379,7 @@ def evaluate_model(n_ecgs=None, threshold=2):
             n_correct += 1
 
         cfg.progress_bar("Evaluating ECG", i, data_x.shape[0])
-    if verbose:
+    if cfg.verbosity:
         print('Done, took ' + str(round(time.time() - start, 1)) + ' seconds')
 
     accuracy = n_correct/len(targets)
