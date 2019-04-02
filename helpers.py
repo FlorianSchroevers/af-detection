@@ -1,11 +1,13 @@
+# -*- coding: utf-8 -*-
 import sys
 import sympy
 import unicodedata
+
 from global_params import cfg
 
 def progress_bar_serious(message, part, total):
     message = message + ': '
-    counter = str(part+1) + '/' + str(total) + ' '
+    counter = " "*(len(str(total)) - len(str(part))) + str(part+1) + '/' + str(total) + ' '
     message = message + '\n' + counter
     if part + 1 == total:
         print(message + '['  + '=' * (int(cfg.t_width * 0.75)) +  ']  ', end = '\n')
@@ -35,8 +37,7 @@ def progress_bar_childish(message, part, total):
         sys.stdout.write("\033[F") #back to previous line
         sys.stdout.write("\033[K")
 
-pbd = {
+progress_bar = {
     "childish":progress_bar_childish,
     "serious":progress_bar_serious
-}
-progress_bar = pbd[cfg.progress_bar_style]
+}[cfg.progress_bar_style]

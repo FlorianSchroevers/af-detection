@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """ File: core.py
     Implements the the neural network model and the data.
 Authors: Florian Schroevers, Abel Oakley, Flavio Miceli
@@ -15,7 +16,7 @@ from keras.models import load_model
 
 import numpy as np
 
-def prepare_train_val_data(data_x, data_y, feature_data=None, tvt_split=[0.6, 0.3, 0.1], equal_split_test=False):
+def prepare_train_val_data(data_x, data_y, feature_data=None, tvt_split=[0.6, 0.3, 0.1], equal_split_test=False, split_ids=[]):
     """ function : prepare_train_val_data
 
     splits the data in a training, validation and test set, while maintaining a
@@ -33,7 +34,10 @@ def prepare_train_val_data(data_x, data_y, feature_data=None, tvt_split=[0.6, 0.
             a list with three floats that represent the fraction of the size of
             the training, validation and test (tvt) sets respectively
         equal_split_test : bool
-                whether to split the test set 50/50
+            whether to split the test set 50/50
+        split_ids : np.array [optional, default: []]
+            array containing ids to split the data by so each id occurs in only one 
+            of the set
     Returns:
         train_x : dict
             a dict containing the data of this set with input name as key and
@@ -59,7 +63,7 @@ def prepare_train_val_data(data_x, data_y, feature_data=None, tvt_split=[0.6, 0.
     tvt_split = cfg.tvt_split
     if np.sum(tvt_split) != 1:
         tvt_split = np.divide(np.array(tvt_split), np.sum(tvt_split))
-
+    
     # get the indices of healthy and unhealthy data
     healthy_idx = np.array([i for i in range(data_len) if data_y[i] == 0])
     unhealthy_idx = np.array([i for i in range(data_len) if data_y[i] != 0])
@@ -97,11 +101,14 @@ def prepare_train_val_data(data_x, data_y, feature_data=None, tvt_split=[0.6, 0.
             healthy_idx[n_train + n_validation:],
             unhealthy_idx[n_train + n_validation:]
         ])
-        test_idx = test_idx[:n_test]
 
     np.random.shuffle(train_idx)
     np.random.shuffle(validation_idx)
     np.random.shuffle(test_idx)
+
+    # we need to cut the amount of test samples short to ensure tvt split 
+    # is still accurate (in case test set is not 50/50 SR/AF)
+    test_idx = test_idx[:n_test]
 
     # apply these indices to the input data to get the actual ecg's
     ecg_train_x = data_x[train_idx, :, :]
@@ -288,7 +295,8 @@ def train(model, train_x, y_train, x_val, y_val, batch_size=32, epochs=32, save=
             y = y_train,
             batch_size = batch_size,
             epochs = epochs,
-            validation_data = (x_val, y_val)
+            validation_data = (x_val, y_val),
+            verbose = int(cfg.verbosity)
         )
 
     if save:
@@ -332,7 +340,7 @@ def eval(model, x_test, y_test, batch_size=32):
             list of the loss and metrics specified by the model after running
             the model on the test data
     """
-    r = model.evaluate(x_test, y_test, batch_size=batch_size)
+    r = model.evaluate(x_test, y_test, batch_size=batch_size, verbose=int(cfg.verbosity))
 
     predictions = model.predict(x_test)
     return r

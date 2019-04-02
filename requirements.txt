@@ -8,5 +8,3 @@ biosppy
 unicodedata
 sympy
 json
-types
-

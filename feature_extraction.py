@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """ File: feature_extraction.py
     Handles the generation of the data from files.
 Authors: Florian Schroevers, Christopher Madsen, Flavio Miceli

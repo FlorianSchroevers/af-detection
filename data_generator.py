@@ -1,179 +1,46 @@
+# -*- coding: utf-8 -*-
 """ File: data_generator.py
     Handles the generation of the data from files.
 Authors: Florian Schroevers
 """
-from helpers import progress_bar
-from global_params import cfg
 import os
-import numpy as np
 import re
 import random
-from sklearn.preprocessing import scale, normalize
-
+import warnings
 import time
 
-def get_ids():
-    """ function: get_ids
+import numpy as np
+from sklearn.preprocessing import scale, normalize
 
-    returns a list of all patient id's in the dataset
+from helpers import progress_bar
+from global_params import cfg
 
-    Args:
-    Returns:
-        ids : list
-            a list of all patient id's in the dataset
+def filename_info(fname, var):
+    """ Extract a given var from a filename
+        Args:
+            fname : str
+                the filename to extractan attribute from
+            var : str
+                which attribute to extract (see filename format 
+                in config.json)
 
     """
-    ids = [fname[:7] for fname in os.listdir(cfg.data_loading_location)]
-    return list(set(ids))
-
-def get_ecg_by_id(patient_id, t=None):
-    """ function: get_ecg_data_by_id
-
-    returns the contents of an ecg file and its target (rythm), given a data id.
-    if the time is not given, a random ecg will be chosen.
-
-    Args:
-        patient_id : str
-            the id of the patient
-        t : str or Nonetype [optional, default: None]
-            the time at which the ecg was taken
-    Returns:
-        tuple (5000x8 np.array, int): a numpy array with the data and the target
-                                      (0 if sinus rythm, 1 otherwise)
-    """
-    filedict = get_time_fname_mapping(patient_id)
-    if not t:
-        fname = filedict[random.choice(list(filedict.keys()))]
+    vard = cfg.fname_format.split("_")
+    if fname.endswith(cfg.file_extension):
+        fnamed = fname[:-len(cfg.file_extension)].split("_")
     else:
-        fname = filedict[t]
+        fnamed = fname.split("_")
 
-    ecg = np.loadtxt(
-        cfg.data_loading_location + fname,
-        delimiter=',',
-        dtype=int
-    )
-    target = 0 if 'SR' in fname else 1
-
-    return ecg, target
-
-def get_ecg_fnames(patient_id):
-    """ function: get_ecg_fnames
-
-    Returns a list of filenames which are ecg's for a given patient
-
-    Args:
-        patient_id : str
-            the id of the patient
-    Returns:
-        fnames : list
-            a list containing all filenames with ecg's of this patient
-    """
-    i = 0
-    fnames = [f for f in os.listdir(cfg.data_loading_location) if re.match(patient_id, f)]
-    return fnames
-
-def get_times(patient_id):
-    """ function: get_times
-
-    Returns a list of times at which ecg's for a given patient are taken
-
-    Args:
-        patient_id : str
-            the id of the patient
-    Returns:
-        times : list
-            a list containing times at which ecg's of this patient are taken
-    """
-    files = get_ecg_fnames(patient_id)
-    times = [f[14:16] + '-' + f[12:14] + '-' + f[8:12] + ' at ' +  f[17:19] + \
-             ':' +  f[19:21] for f in files]
-    return times
-
-def get_gender(patient_id):
-    """ function: get_gender
-
-    Returns a the gender of the given patient
-
-    Args:
-        patient_id : str
-            the id of the patient
-    Returns:
-        gender : str
-            'M' if the patient is male, 'F' if female
-    """
-    files = get_ecg_fnames(patient_id)
-    gender = 'M' if 'M' in files[0] else 'F'
-    return gender
-
-def get_time_rythm_mapping(patient_id):
-    """ function: get_time_rythm_mapping
-
-    Returns a dict mapping the times to the rythm at that time for a given
-    patient
-
-    Args:
-        patient_id : str
-            the id of the patient
-    Returns:
-        time_rythm_dict : dict
-            keys are times ecg's were taken, values are rythms at
-            those times
-    """
-    files = get_ecg_fnames(patient_id)
-    times = [f[14:16] + '-' + f[12:14] + '-' + f[8:12] + ' at ' +  f[17:19] \
-             + ':' +  f[19:21] for f in files]
-    r = ['SR' if 'SR' in f else 'AF' for f in files]
-    time_rythm_dict = {times[i]:r[i] for i in range(len(files))}
-    return time_rythm_dict
-
-def get_time_fname_mapping(data_id):
-    """ function: get_time_fname_mapping
-
-    Returns a dict mapping the times to the filename of the ecg taken at that
-    time for a given patient
-
-    Args:
-        data_id : str
-            the id of the patient
-    Returns:
-        times_fnames_dict : dict
-            keys are times ecg's were taken, values are filenames of
-            ecg's taken at those times
-    """
-    files = get_ecg_fnames(data_id)
-    times = [f[14:16] + '-' + f[12:14] + '-' + f[8:12] + ' at ' +  f[17:19] \
-             + ':' +  f[19:21] for f in files]
-    times_fnames_dict = {times[i]:files[i] for i in range(len(files))}
-    return times_fnames_dict
-
-def get_feat_data(df):
-    """ function: get_feat_data
-
-    Args:
-        df: a pandas dataframe with atleast 7 columns, 6 of which are not params
-    Returns:
-        features: part of the dataframe that makes up the processed features
-                Shape is 6 + number of params by number of ECG's
-        targets: targets that belong to those features
-                Shape is 1 by number of ECG's
-    """
     try:
-        # Figures out the number of parameters
-        # Assumes 6 columns in the dataframe to be something else!
-        params = len(df.columns) - 6
+        v = fnamed[vard.index(var)]
+    except IndexError:
+        raise IOError("Filename does not conform to required format (please change filename or format in config.json)")
+    return v
 
-        # Slice everything up to targets, and get targets separatly
-        features = df.ix[:,'signal':'par'+str(params)]
-        targets = df['target']
-    except:
-        print("Chris you idiot, you broke the dataframe! Contact Florian to fix it.")
-        print("Love, -Flavio")
-        print("PS it might have been me who broke stuff.")
-        print("PPS if it was me, contact Florian aswell.")
-
-    return features, targets
-
-def get_data(n_files=None, split=False, channels=None, norm=False, exclude_targets=[], return_fnames=False, randomize_order=True, extension='.csv', n_points=5000):
+def get_data(n_files=None, split=False, channels=None, norm=False, 
+            targets=[], return_fnames=False, randomize_order=True, 
+            extension='.csv', n_points=None, include_first_channel=False,
+            unique_patients=False):
     """ function: get_data
 
     returns data in the directory specified in the helpers.py file
@@ -194,15 +61,20 @@ def get_data(n_files=None, split=False, channels=None, norm=False, exclude_targe
             indices of channels to return or None for all channels
         norm : (bool) [optional, default: False]
             normalize the channels
-        exclude_targets : (list) [optional, default: []]
-            a list of conditions not to return (0: healthy, 1: afib, 2: afl,
-            3: svt, 4: unknown)
+        targets : (list) [optional, default: []]
+            a list of conditions to return
         return_fnames : bool [optional, default: False]
             wheter to return a the filenames of the data
         randomize_order : bool [optional, default: True]
             whether to randomize the order of the data
-        n_points : int [optional, default: 5000]
+        n_points : int [optional, default: None]
             the number of data points to exctract
+        include_first_channel : bool [optional, default: False]
+            whether to return an extra copy of the first channels
+            (for determining rpeaks in data from other channels)
+        unique_patients : bool [optional, default: False]
+            whether to only use one ecg per patient to reduce bias
+
     Returns:
         data_x : np.ndarray
             the ecg data itself as a 3D array with shape
@@ -216,46 +88,24 @@ def get_data(n_files=None, split=False, channels=None, norm=False, exclude_targe
         print("Assembling data from files...")
         start = time.time()
 
-    # handle the number of channels
-    if channels == None:
-        n_channels = 8
-    else:
-        n_channels = len(channels)
+    if channels == []:
+        channels = [x for x in range(cfg.n_channels)]
 
-    """
-    SR_ Sine Rythm
-        Typical hearthbeat
+    n_channels = len(channels)
 
-    AF_ Atrial Fibrillation
-        Absent P wave
-
-    AFL Atrial Flutter
-        Presence of "flutter waves" resembling p-waves or sawtooths
-
-    SVT Supraventricular Tachycardia
-        Paroxysmal SVT, narrow QRS and fast heart rhythm
-    """
-
-    # A dict mapping condition name in filename to condition id and other way
-    # around
-    y_dict = {
-        'SR_': 0,
-        'AF_': 1,
-        'AFL': 2,
-        'SVT': 3,
-        'XX_': 4,
-        0: 'SR_',
-        1: 'AF_',
-        2: 'AFL',
-        3: 'SVT',
-        4: 'XX_'
-    }
+    if include_first_channel and 0 not in channels:
+        channels = [0] + channels
+        n_channels += 1
 
     # get a list of all filenames
-    all_files = [
-        f for f in os.listdir(cfg.data_loading_location)
-            if f.endswith(extension) and y_dict[f[24:27]] not in exclude_targets
-        ]
+    used_patients = []
+    all_files = []
+    for fname in os.listdir(cfg.data_loading_location):
+        if fname.endswith(extension)\
+            and (filename_info(fname, "TARGET") in targets or targets == []) \
+            and (filename_info(fname, "ID") not in used_patients or not unique_patients):
+            all_files.append(fname)
+            used_patients.append(filename_info(fname, "ID"))
 
     # set number of files to all files if target number is not specified
     if type(n_files) != int or n_files > len(all_files):
@@ -264,9 +114,9 @@ def get_data(n_files=None, split=False, channels=None, norm=False, exclude_targe
     # handle the case where the data has to be split with specified amount
     if split != "max" and split:
         # all healthy files
-        sr_files  = [f for f in all_files if y_dict[f[24:27]] == 0]
+        sr_files  = [f for f in all_files if filename_info(f, "TARGET") == "SR"]
         # all non-healthy files
-        asr_files = [f for f in all_files if y_dict[f[24:27]] > 0]
+        asr_files = [f for f in all_files if filename_info(f, "TARGET") != "SR"]
 
         try:
             # try to get a random sample of these files of the amount specified
@@ -285,7 +135,8 @@ def get_data(n_files=None, split=False, channels=None, norm=False, exclude_targe
         asr_files = []
         for f in all_files:
             # create lists of healthy and non-healthy files
-            if y_dict[f[24:27]] == 0:
+            if filename_info(f, "TARGET") == "SR":
+                # target is sinus rythm
                 sr_files.append(f)
             else:
                 asr_files.append(f)
@@ -307,15 +158,20 @@ def get_data(n_files=None, split=False, channels=None, norm=False, exclude_targe
         # specified by args
         np.random.shuffle(files)
 
-    assert len(files) == n_files
+    if len(files) != n_files:
+        warnings.warn("The amount of files loaded is not the same as the amount requested")
+
+    if n_points == None:
+        n_points = cfg.interval * cfg.sampling_frequency
 
     data_x = np.empty(shape=(n_files, n_points, n_channels))
     data_y = np.zeros(shape=(n_files, ))
 
     for i, fname in enumerate(files):
+
         ecg = np.loadtxt(
             cfg.data_loading_location + fname,
-            delimiter=',',
+            delimiter=cfg.delimiter,
             dtype=int,
             usecols=channels,
             ndmin=2
@@ -329,7 +185,8 @@ def get_data(n_files=None, split=False, channels=None, norm=False, exclude_targe
         data_x[i, :, :] = ecg
 
         # set target variable (by id, see ydict above)
-        data_y[i] = y_dict[fname[24:27]]
+
+        data_y[i] = getattr(cfg, filename_info(fname, "TARGET"))
 
         if cfg.verbosity:
             progress_bar("Load ECG", i, n_files)
@@ -338,6 +195,7 @@ def get_data(n_files=None, split=False, channels=None, norm=False, exclude_targe
     if return_fnames:
         # specified by args
         return data_x, data_y, files
+
     return data_x, data_y
 
 def get_fe_data():

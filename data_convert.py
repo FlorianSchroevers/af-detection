@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 
 This program reads the raw .ECG data obtained from the PHD projects.

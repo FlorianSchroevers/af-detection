@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """ File: main.py
     Main file of the DeepLearningDoc project.
 Authors: Florian Schroevers

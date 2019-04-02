@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """ File: data_loading.py
     Handles the preprocessing of the data.
 Authors: Florian Schroevers, Flavio Miceli
@@ -22,6 +23,7 @@ import numpy as np
 import math
 import os
 import time
+import warnings
 
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
@@ -291,7 +293,7 @@ def pulse_scale(pulse, target_size):
     return interp_function(np.linspace(0, pulse.size-1, target_size))
 
 
-def extract_windows(data_x, data_y, pulse_size=0):
+def extract_windows(data_x, data_y, pulse_size=0, exclude_first_channel=False, fnames=[]):
     """ function : extract_windows
 
     extract all pulses from an ecg and scale them to a given size
@@ -303,6 +305,9 @@ def extract_windows(data_x, data_y, pulse_size=0):
             an array of targets of the ECG's
         pulse_size : int [optional, default: 80]
             the size to scale the pulses to
+        exclude_first_channel : bool [optional, default: False]
+            whether to extract pulses from the first channel.
+            used when only rpeak information is needed from first channel
     Returns:
         pulse_data_x : np.ndarray
             an array of pulses
@@ -317,22 +322,31 @@ def extract_windows(data_x, data_y, pulse_size=0):
         start = time.time()
         print("Extracting and scaling pulses from ECG's...")
     n_samples, n_points, n_channels = data_x.shape
-    pulses = np.empty(shape=(n_samples*25, pulse_size, n_channels))
+
+    # if exclude_first_channel:
+    #     n_channels = max(n_channels - 1, 1)
+    pulses = np.empty(shape=(n_samples*25, pulse_size, 1))
     pulse_targets = np.empty(shape=(n_samples*25))
     pulse_n = 0
 
     for i, ecg in enumerate(data_x):
+        rpeaks = fextract.get_rpeaks(ecg.T[0])
+        if exclude_first_channel and ecg.shape[1] > 1:
+            ecg = ecg[:, 1:]
         for channel, signal in enumerate(ecg.T):
-            rpeaks = fextract.get_rpeaks(signal)
+            if len(rpeaks) == 0 or np.isnan(signal.min()):
+                if len(fnames) > i:
+                    warnings.warn("Faulty ECG found:: " + fnames[i])
+                else:
+                    warnings.warn("Faulty ECG found.")
+
+                continue
             signal = signal[rpeaks[0]:rpeaks[-1]]
+                
             rpeaks = np.subtract(rpeaks, rpeaks[0])
-            # the distance from the r peak (in both directions) to take a window from
-            # mean_rpeak_distance = int(np.mean(np.diff(rpeaks))/2)
+
             for rpeak_n in range(len(rpeaks) - 1):
                 pulse = signal[rpeaks[rpeak_n]:rpeaks[rpeak_n + 1]]
-                # pulse_start_index = int((rpeaks[rpeak_n] - mean_rpeak_distance))
-                # pulse_end_index = int((rpeaks[rpeak_n] + mean_rpeak_distance))
-                # pulse = signal[pulse_start_index:pulse_end_index]
 
                 # some pulses result in errors, we simpy ignore them
                 # NOTE: this may cause bias in the model
@@ -342,16 +356,13 @@ def extract_windows(data_x, data_y, pulse_size=0):
                 except:
                     continue
 
-                # plt.plot(pulse)
-                # plt.show()
-
                 # add to new array
                 pulses[pulse_n, :, channel] = pulse
                 pulse_targets[pulse_n] = data_y[i]
 
                 pulse_n += 1
         if cfg.verbosity:
-            progress_bar("Extraced pulses from ECG", i, n_samples)
+            progress_bar("Extracted pulses from ECG", i, n_samples)
     if cfg.verbosity:
         print('Done, took ' + str(round(time.time() - start, 1)) + ' seconds')
 
