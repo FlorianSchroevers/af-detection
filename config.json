@@ -16,11 +16,10 @@
     "interval": 10,
     "fname_format": "ID_DATE_TIME_TARGET_GENDER_STATE",
     "n_channels": 8,
-
     "SR": 0,
     "AF": 1,
-    
-    "unique_patients": true,
+
+    "split_on": "patient_ids",
     "normalize_data": true,
     "targets": ["SR", "AF"],
     "leads": [0],

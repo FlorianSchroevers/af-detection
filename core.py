@@ -34,7 +34,7 @@ def write_log(t0, lead, model, r):
         log.write("_"*65 + "\n\n")
 
         log.write("Data:\n")
-        log.write("One ecg per patient:\t{}\n".format("true" if cfg.unique_patients else "false"))
+        log.write("One ecg per patient:\t{}\n".format(cfg.split_on))
         log.write("Training set size:\t\t{}\n".format(cfg.train_size))
         log.write("Validation set size:\t{}\n".format(cfg.validation_size))
         log.write("Test set size:\t\t\t{}\n".format(cfg.test_size))
@@ -50,7 +50,7 @@ def write_log(t0, lead, model, r):
         csvlog.write(",".join([
             t, str(lead), 
             str(cfg.tvt_split[0]), str(cfg.tvt_split[1]), str(cfg.tvt_split[2]),
-            str(cfg.epochs), str(cfg.unique_patients), 
+            str(cfg.epochs), str(cfg.split_on), 
             str(cfg.train_size), str(cfg.validation_size), str(cfg.test_size), 
             str(r[0]), str(r[1]), str(r[2]), str(r[3]), str(r[4]), str(r[5])
         ]) + "\n")
@@ -61,7 +61,7 @@ def main():
         channels = np.array(range(cfg.n_channels)),
         norm = cfg.normalize_data,
         targets = cfg.targets,
-        unique_patients = cfg.unique_patients,
+        # unique_patients = cfg.unique_patients,
         extension = "." + cfg.file_extension
     )
 
@@ -85,8 +85,9 @@ def main():
         x_train, y_train, x_val, y_val, x_test, y_test = nn.prepare_train_val_data(
             data_x, 
             data_y, 
-            tvt_split = cfg.tvt_split, 
-            equal_split_test = cfg.equal_split_test
+            cfg.tvt_split, 
+            split_on = cfg.split_on,
+            patient_ids = [dgen.filename_info(f, "ID") for f in fnames]
         )
 
         cfg.train_size = x_train.shape[0]

@@ -14,10 +14,41 @@ from keras.layers import Dense, Dropout, Input, Embedding, Flatten, concatenate,
 from keras.optimizers import Adam
 import keras.backend as K
 from keras.models import load_model
+from keras import callbacks
 
 import numpy as np
 
-def prepare_train_val_data(data_x, data_y, feature_data=None, tvt_split=[0.6, 0.3, 0.1], equal_split_test=False, split_ids=[]):
+from api import ServerSentEvent
+
+def split_patients(data_x, data_y, patient_ids, tvt_split):
+    # number of inputs
+    data_len = data_x.shape[0]
+
+    # make sure the tvt split adds up to one so all the data will be used
+    tvt_split = cfg.tvt_split
+    if np.sum(tvt_split) != 1:
+        tvt_split = np.divide(np.array(tvt_split), np.sum(tvt_split))
+
+    id_set = list(set(patient_ids))
+    np.random.shuffle(id_set)
+
+    n_train, n_validation, n_test = np.multiply(np.array(tvt_split), len(id_set)).astype(int)
+
+    train_ids = id_set[:n_train]
+    val_ids = id_set[n_train:n_train + n_validation]
+    test_ids = id_set[n_train + n_validation:n_train + n_validation + n_test]
+
+    train_idx, validation_idx, test_idx = [], [], []
+    for i in range(data_len):
+        if patient_ids[i] in train_ids:
+            train_idx.append(train_ids)
+        elif patient_ids[i] in val_ids:
+            validation_idx.append(val_ids)
+        elif patient_ids[i] in test_ids:
+            test_idx.append(test_ids)
+
+
+def prepare_train_val_data(data_x, data_y, tvt_split, split_on="", patient_ids=[]):
     """ function : prepare_train_val_data
 
     splits the data in a training, validation and test set, while maintaining a
@@ -29,16 +60,16 @@ def prepare_train_val_data(data_x, data_y, feature_data=None, tvt_split=[0.6, 0.
             an array of input data
         data_y : np.ndarray
             an array of targets of the data
-        feature_data : pandas.DataFrame
-            a dataframe with any additional extracted features
         tvt_split : list
             a list with three floats that represent the fraction of the size of
             the training, validation and test (tvt) sets respectively
-        equal_split_test : bool
-            whether to split the test set 50/50
-        split_ids : np.array [optional, default: []]
-            array containing ids to split the data by so each id occurs in only one 
-            of the set
+        split_on : str [optional, default: ""]
+            can be "", "patient_id" or "label"; on which property to split the 
+            different sets on.
+            if set to "patient_id", there will be no patient present in multiple sets
+            if set to "label", each set will hold 50/50 ratio of healthy and unhealthy samples
+            else, the split will be entirely random
+
     Returns:
         train_x : dict
             a dict containing the data of this set with input name as key and
@@ -64,52 +95,76 @@ def prepare_train_val_data(data_x, data_y, feature_data=None, tvt_split=[0.6, 0.
     tvt_split = cfg.tvt_split
     if np.sum(tvt_split) != 1:
         tvt_split = np.divide(np.array(tvt_split), np.sum(tvt_split))
-    
-    # get the indices of healthy and unhealthy data
-    healthy_idx = np.array([i for i in range(data_len) if data_y[i] == 0])
-    unhealthy_idx = np.array([i for i in range(data_len) if data_y[i] != 0])
 
-    # shuffle them so the function will return different ecg's every time
-    np.random.shuffle(healthy_idx)
-    np.random.shuffle(unhealthy_idx)
+    if split_on == "label":
+        # get the indices of healthy and unhealthy data
+        healthy_idx = np.array([i for i in range(data_len) if data_y[i] == 0])
+        unhealthy_idx = np.array([i for i in range(data_len) if data_y[i] != 0])
 
-    # to make sure the split is 50/50, we maximize the amount of samples to the 
-    # smallest of the lengths of the two sets
-    data_len = min(len(healthy_idx), len(unhealthy_idx))
+        # shuffle them so the function will return different ecg's every time
+        np.random.shuffle(healthy_idx)
+        np.random.shuffle(unhealthy_idx)
 
-    # get the real size of the tvt sets based on the fractions specified by tvt_split
-    n_train, n_validation, n_test = np.multiply(np.array(tvt_split), data_len).astype(int)
+        # to make sure the split is 50/50, we maximize the amount of samples to the 
+        # smallest of the lengths of the two sets
+        data_len = min(len(healthy_idx), len(unhealthy_idx))
 
-    # set the indices of the samples each of the tvt sets should take in
-    # each set will hold about 50/50 healthy and unhealthy ecg's
-    train_idx = np.concatenate([
-        healthy_idx[:n_train],
-        unhealthy_idx[:n_train]
-    ])
+        # get the real size of the tvt sets based on the fractions specified by tvt_split
+        n_train, n_validation, n_test = np.multiply(np.array(tvt_split), data_len).astype(int)
 
-    validation_idx = np.concatenate([
-        healthy_idx[n_train:n_train + n_validation],
-        unhealthy_idx[n_train:n_train + n_validation]
-    ])
-
-    if cfg.equal_split_test:
-        test_idx = np.concatenate([
-            healthy_idx[n_train + n_validation:n_train + n_validation + n_test],
-            unhealthy_idx[n_train + n_validation:n_train + n_validation + n_test]
+        # set the indices of the samples each of the tvt sets should take in
+        # each set will hold about 50/50 healthy and unhealthy ecg's
+        train_idx = np.concatenate([
+            healthy_idx[:n_train],
+            unhealthy_idx[:n_train]
         ])
+
+        validation_idx = np.concatenate([
+            healthy_idx[n_train:n_train + n_validation],
+            unhealthy_idx[n_train:n_train + n_validation]
+        ])
+
+        if cfg.equal_split_test:
+            test_idx = np.concatenate([
+                healthy_idx[n_train + n_validation:n_train + n_validation + n_test],
+                unhealthy_idx[n_train + n_validation:n_train + n_validation + n_test]
+            ])
+        else:
+            test_idx = np.concatenate([
+                healthy_idx[n_train + n_validation:],
+                unhealthy_idx[n_train + n_validation:]
+            ])
+
+            np.random.shuffle(test_idx)
+            test_idx = test_idx[:n_test]
+
+    elif split_on == "patient_id":
+        id_set = list(set(patient_ids))
+        np.random.shuffle(id_set)
+
+        n_train, n_validation, n_test = np.multiply(np.array(tvt_split), len(id_set)).astype(int)
+
+        train_ids = id_set[:n_train]
+        val_ids = id_set[n_train:n_train + n_validation]
+        test_ids = id_set[n_train + n_validation:n_train + n_validation + n_test]
+
+        train_idx, validation_idx, test_idx = [], [], []
+        for i in range(data_len):
+            if patient_ids[i] in train_ids:
+                train_idx.append(train_ids)
+            elif patient_ids[i] in val_ids:
+                validation_idx.append(val_ids)
+            elif patient_ids[i] in test_ids:
+                test_idx.append(test_ids)
+
     else:
-        test_idx = np.concatenate([
-            healthy_idx[n_train + n_validation:],
-            unhealthy_idx[n_train + n_validation:]
-        ])
+        n_train, n_validation, n_test = np.multiply(np.array(tvt_split), data_len).astype(int)
+        idx = [x for x in range(data_len)]
+        np.random.shuffle(idx)
+        train_idx = idx[:n_train]
+        validation_idx = idx[n_train:n_train + n_validation]
+        test_idx = idx[n_train + n_validation:n_train + n_validation + n_test]
 
-    np.random.shuffle(train_idx)
-    np.random.shuffle(validation_idx)
-    np.random.shuffle(test_idx)
-
-    # we need to cut the amount of test samples short to ensure tvt split 
-    # is still accurate (in case test set is not 50/50 SR/AF)
-    test_idx = test_idx[:n_test]
 
     # apply these indices to the input data to get the actual ecg's
     ecg_train_x = data_x[train_idx, :, :]
@@ -126,19 +181,6 @@ def prepare_train_val_data(data_x, data_y, feature_data=None, tvt_split=[0.6, 0.
     train_x = {"ecg_inp" : ecg_train_x}
     validation_x = {"ecg_inp" : ecg_validation_x}
     test_x = {"ecg_inp" : ecg_test_x}
-
-    # do the same stuff for feature data if its given
-    if type(feature_data) != type(None):
-        # drop the targets, they won't be used to train on!
-        feature_data = feature_data.drop('target', axis=1).values.astype(np.float32)
-
-        fe_train_x = feature_data[train_idx]
-        fe_validation_x = feature_data[validation_idx]
-        fe_test_x = feature_data[test_idx]
-
-        train_x["features_inp"] = fe_train_x
-        validation_x["features_inp"] = fe_validation_x
-        test_x["features_inp"] = fe_test_x
 
     train_x = np.squeeze(train_x["ecg_inp"])
     validation_x = np.squeeze(validation_x["ecg_inp"])
@@ -300,6 +342,7 @@ def train(model, train_x, y_train, x_val, y_val, batch_size=32, epochs=32, save=
     history = model.fit(
             x = train_x,
             y = y_train,
+            callbacks = [callbacks.RemoteMonitor(root='http://localhost:9000')], 
             batch_size = batch_size,
             epochs = epochs,
             validation_data = (x_val, y_val),
