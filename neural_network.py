@@ -8,6 +8,7 @@ from data_generator import get_data, get_fe_data
 from global_params import cfg
 
 from sklearn.model_selection import train_test_split
+import tensorflow as tf
 from keras.models import Model
 from keras.layers import Dense, Dropout, Input, Embedding, Flatten, concatenate, Conv1D
 from keras.optimizers import Adam
@@ -224,7 +225,8 @@ def ffnet(ecg_shape, summarize=False):
         metrics = [
             "accuracy",
             precision,
-            recall
+            recall,
+            auc
         ]
     )
 
@@ -262,6 +264,11 @@ def recall(y_true, y_pred):
     possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
     recall = true_positives / (possible_positives + K.epsilon())
     return recall
+
+def auc(y_true, y_pred):
+    auc = tf.metrics.auc(y_true, y_pred)[1]
+    K.get_session().run(tf.local_variables_initializer())
+    return auc
 
 def train(model, train_x, y_train, x_val, y_val, batch_size=32, epochs=32, save=False, plot=False):
     """ function : train

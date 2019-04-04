@@ -43,8 +43,8 @@ def write_log(t0, lead, model, r):
         model.summary(print_fn=lambda x: log.write(x + "\n"))
 
         log.write("Results:\n")
-        log.write("loss\t\taccuracy\tprecision\trecall\t\tF1-score\n")
-        log.write("{0:4.3f}\t\t{1:4.3f}\t\t{2:4.3f}\t\t{3:4.3f}\t\t{3:4.3f}".format(r[0], r[1], r[2], r[3], r[4]) + "\n")
+        log.write("loss\t\taccuracy\tprecision\trecall\t\tAUC\t\t\tF1\n")
+        log.write("{0:4.3f}\t\t{1:4.3f}\t\t{2:4.3f}\t\t{3:4.3f}\t\t{3:4.3f}\t\t{3:4.3f}".format(r[0], r[1], r[2], r[3], r[4], r[5]) + "\n")
         log.write("_"*65 + "\n\n")            
 
         csvlog.write(",".join([
@@ -52,7 +52,7 @@ def write_log(t0, lead, model, r):
             str(cfg.tvt_split[0]), str(cfg.tvt_split[1]), str(cfg.tvt_split[2]),
             str(cfg.epochs), str(cfg.unique_patients), 
             str(cfg.train_size), str(cfg.validation_size), str(cfg.test_size), 
-            str(r[0]), str(r[1]), str(r[2]), str(r[3]), str(r[4])
+            str(r[0]), str(r[1]), str(r[2]), str(r[3]), str(r[4]), str(r[5])
         ]) + "\n")
 
 def main():
@@ -69,7 +69,7 @@ def main():
 
     if cfg.logging:
         with open(cfg.log_location + t + ".csv", 'a') as csvlog:
-            csvlog.write("t,lead,split_train,split_val,split_test,epochs,unique_patients,train_size,validation_size,test_size,loss,accuracy,precision,recall,F1\n")
+            csvlog.write("t,lead,split_train,split_val,split_test,epochs,unique_patients,train_size,validation_size,test_size,loss,accuracy,precision,recall,AUC,F1\n")
     
     for lead in cfg.leads:
         data_x = all_data_x.copy()[:, :, [0, lead]]
@@ -108,7 +108,8 @@ def main():
                 "\naccuracy\t", r[1],
                 "\nprecision\t", r[2],
                 "\nrecall\t\t", r[3],
-                "\nF1-score\t", r[4],
+                "\nAUC\t\t", r[4],
+                "\nF1-score\t", r[5],
             )
 
         if cfg.logging:
