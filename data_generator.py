@@ -15,6 +15,8 @@ from sklearn.preprocessing import scale, normalize
 from helpers import progress_bar
 from global_params import cfg
 
+from ecg import ECG
+
 def filename_info(fname, var):
     """ Extract a given var from a filename
         Args:
@@ -37,7 +39,7 @@ def filename_info(fname, var):
         raise IOError("Filename does not conform to required format (please change filename or format in config.json)")
     return v
 
-def get_data(n_files=None, split=False, channels=None, norm=False, 
+def get_data(n_files=None, split=False, channels=[], norm=False, 
             targets=[], return_fnames=False, randomize_order=True, 
             extension='.csv', n_points=None, include_first_channel=False,
             unique_patients=False):
@@ -183,10 +185,7 @@ def get_data(n_files=None, split=False, channels=None, norm=False,
             ecg = ecg / np.amax(ecg, axis=0)[None, :]
 
         data_x[i, :, :] = ecg
-
-        # set target variable (by id, see ydict above)
-
-        data_y[i] = getattr(cfg, filename_info(fname, "TARGET"))
+        data_y[i] = getattr(cfg, filename_info(fname, "TARGET")[:2])
 
         if cfg.verbosity:
             progress_bar("Load ECG", i, n_files)
@@ -228,7 +227,41 @@ def get_fe_data():
 
     return x, y
 
+# def get_data_xml_format():
+#     all_data_x = np.load("data/npy/final_data.npy")
+#     all_data_y = np.load("data/npy/final_labels.npy")
+    
+#     print(len(all_data_x))
+#     print(len(all_data_y))
+
+#     data = []
+
+#     for patient_id, ecgs in enumerate(all_data_x):
+#         for ecg_i in range(0, len(ecgs), 8):
+#             ecg = np.array(ecgs[ecg_i:ecg_i+8])
+#             data.append(ECG(ecg.T, all_data_y[patient_id], patient_id))
+
+#     return np.array(data)
+
+def get_ECG_data(**kwargs):
+    """ function: get_ECG_data
+
+    Returns an array of loaded data save din ECG classes
+
+    See get_data for args
+    """
+    data_x, data_y, fnames = get_data(**kwargs)
+
+    data = np.empty(shape=(data_x.shape[0]), dtype=ECG)
+    for i in range(data_x.shape[0]):
+        patient_id = filename_info(fnames[i], "ID")
+        date = filename_info(fnames[i], "DATE")
+        time = filename_info(fnames[i], "TIME")
+        data[i] = ECG(data_x[i, :, :], data_y[i], patient_id, date, time)
+
+    return data
 
 if __name__ == "__main__":
+    data = get_ECG_data(return_fnames=True, n_files=100, targets=["AF", "SR"])
     pass
 

@@ -267,8 +267,8 @@ def ffnet(ecg_shape, summarize=False):
         metrics = [
             "accuracy",
             precision,
-            recall,
-            auc
+            recall
+            # auc
         ]
     )
 
@@ -340,35 +340,39 @@ def train(model, train_x, y_train, x_val, y_val, batch_size=32, epochs=32, save=
             the model on the test data
     """
     history = model.fit(
-            x = train_x,
-            y = y_train,
-            callbacks = [callbacks.RemoteMonitor(root='http://localhost:9000')], 
-            batch_size = batch_size,
-            epochs = epochs,
-            validation_data = (x_val, y_val),
-            verbose = int(cfg.verbosity)
-        )
+        x = train_x,
+        y = y_train,
+        callbacks = [callbacks.RemoteMonitor(root='http://localhost:9000')], 
+        batch_size = batch_size,
+        epochs = epochs,
+        validation_data = (x_val, y_val),
+        verbose = int(cfg.verbosity)
+    )
 
     if save:
         model.save(cfg.model_save_name)
 
-    if plot:
+    if cfg.save_images:
         import matplotlib.pyplot as plt
         plt.plot(history.history['acc'])
         plt.plot(history.history['val_acc'])
-        plt.title('model accuracy')
+        plt.title('Model accuracy (lead {})'.format(cfg.current_lead))
         plt.ylabel('accuracy')
         plt.xlabel('epoch')
         plt.legend(['train', 'validation'], loc='upper left')
-        plt.show()
+        plt.savefig("images/accuracy_lead_{}_{}.png".format(cfg.current_lead, cfg.t))
+        plt.clf()
+        # plt.show()
         # summarize history for loss
         plt.plot(history.history['loss'])
         plt.plot(history.history['val_loss'])
-        plt.title('model loss')
+        plt.title('Model loss (lead {})'.format(cfg.current_lead))
         plt.ylabel('loss')
         plt.xlabel('epoch')
         plt.legend(['train', 'validation'], loc='upper left')
-        plt.show()
+        plt.savefig("images/loss_lead_{}_{}.png".format(cfg.current_lead, cfg.t))
+        plt.clf()
+        # plt.show()
     return model
 
 def eval(model, x_test, y_test, batch_size=32):
@@ -393,6 +397,25 @@ def eval(model, x_test, y_test, batch_size=32):
     r = model.evaluate(x_test, y_test, batch_size=batch_size, verbose=int(cfg.verbosity))
 
     predictions = model.predict(x_test)
+
+    from sklearn.metrics import roc_curve
+    import matplotlib.pyplot as plt
+    fpr, tpr, thresholds_keras = roc_curve(y_test, predictions.ravel())
+
+    import sklearn
+    auc = sklearn.metrics.auc(fpr, tpr)
+
+    r.append(auc)
+
+    plt.figure(1)
+    plt.plot([0, 1], [0, 1], 'k--')
+    plt.plot(fpr, tpr, label='area = {:.3f}'.format(auc))
+    plt.xlabel('False positive rate')
+    plt.ylabel('True positive rate')
+    plt.title('ROC curve (lead {})'.format(cfg.current_lead))
+    plt.legend(loc='best')
+    plt.savefig("images/aoc_lead_{}_{}.png".format(cfg.current_lead, cfg.t))
+    plt.clf()
     return r
 
 def evaluate_model(n_ecgs=None, threshold=2):

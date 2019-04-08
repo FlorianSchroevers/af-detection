@@ -5,6 +5,13 @@ import unicodedata
 
 from global_params import cfg
 
+def pad_zeros(s, l):
+    n_zeros = l - len(s)
+    return "0" * n_zeros + s
+
+def int_to_padded_str(i, l):
+    return pad_zeros(str(i), l)
+
 def progress_bar_serious(message, part, total):
     message = message + ': '
     counter = " "*(len(str(total)) - len(str(part))) + str(part+1) + '/' + str(total) + ' '

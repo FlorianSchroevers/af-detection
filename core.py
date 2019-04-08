@@ -21,11 +21,10 @@ np.warnings.filterwarnings('ignore')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 logging.set_verbosity(logging.ERROR)
 
-def write_log(t0, lead, model, r):
-    with open(cfg.log_location + t0 + ".log", 'a') as log, open(cfg.log_location + t0 + ".csv", 'a') as csvlog:
-        t = str(datetime.datetime.now())
+def write_log(lead, model, r):
+    with open(cfg.log_location + "log_" + cfg.t + ".log", 'a') as log, open(cfg.log_location + "log_" + cfg.t + ".csv", 'a') as csvlog:
         log.write("="*65 + "\n")
-        log.write("Log entry at: {}\n\n".format(t))
+        log.write("Log entry at: {}\n\n".format(cfg.t))
 
         log.write("Config:\n")
         log.write("lead\t\t{}\n".format(str(lead)))
@@ -48,7 +47,7 @@ def write_log(t0, lead, model, r):
         log.write("_"*65 + "\n\n")            
 
         csvlog.write(",".join([
-            t, str(lead), 
+            cfg.t, str(lead), 
             str(cfg.tvt_split[0]), str(cfg.tvt_split[1]), str(cfg.tvt_split[2]),
             str(cfg.epochs), str(cfg.split_on), 
             str(cfg.train_size), str(cfg.validation_size), str(cfg.test_size), 
@@ -57,18 +56,16 @@ def write_log(t0, lead, model, r):
 
 def main():
     all_data_x, all_data_y, fnames = dgen.get_data(
+        n_files=100,
         return_fnames = True,
         channels = np.array(range(cfg.n_channels)),
         norm = cfg.normalize_data,
         targets = cfg.targets,
-        # unique_patients = cfg.unique_patients,
         extension = "." + cfg.file_extension
     )
 
-    t = "".join(re.split(r"-|:|\.| ", str(datetime.datetime.now()))[:-1])
-
     if cfg.logging:
-        with open(cfg.log_location + t + ".csv", 'a') as csvlog:
+        with open(cfg.log_location + "log_" + cfg.t + ".csv", 'a') as csvlog:
             csvlog.write("t,lead,split_train,split_val,split_test,epochs,unique_patients,train_size,validation_size,test_size,loss,accuracy,precision,recall,AUC,F1\n")
     
     for lead in cfg.leads:
@@ -114,7 +111,7 @@ def main():
             )
 
         if cfg.logging:
-            write_log(t, lead, model, r)
+            write_log(lead, model, r)
 
 if __name__ == "__main__":
     try:

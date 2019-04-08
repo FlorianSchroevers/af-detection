@@ -9,6 +9,7 @@
     "verbosity": true,
     "logging": true,
     "t_width": 80,
+    "save_images": true,
 
     "file_extension": "csv",
     "delimiter": ",",
