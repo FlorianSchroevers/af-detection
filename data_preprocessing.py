@@ -14,9 +14,11 @@ Functions:
         straightens an ecg
 """
 import data_generator as dgen
-import feature_extraction as fextract
 from helpers import progress_bar
-from global_params import cfg
+import data_convert as dcon
+
+import biosppy.signals.ecg as biosppy_ecg
+import biosppy.signals.tools as biosppy_tools
 
 import pandas as pd
 import numpy as np
@@ -208,7 +210,7 @@ def fourier_straighten(signal, resolution=20):
     corrected_ecg = np.subtract(signal, baseline)
     return corrected_ecg
 
-def preprocess_data(data_x, smooth_window_size=51, smooth_order=4, fourier_baseline_resolution=20):
+def preprocess_data(data_x, smooth_window_size=51, smooth_order=4, fourier_baseline_resolution=20, verbosity=False):
     """ function: preprocess_data
 
     preprocess the data by smoothing and straightening.
@@ -222,7 +224,7 @@ def preprocess_data(data_x, smooth_window_size=51, smooth_order=4, fourier_basel
     """
     assert data_x.ndim == 3
 
-    if cfg.verbosity:
+    if verbosity:
         print("Preprocessing data...")
         start = time.time()
 
@@ -240,40 +242,11 @@ def preprocess_data(data_x, smooth_window_size=51, smooth_order=4, fourier_basel
                 resolution = fourier_baseline_resolution
             )
             p_data_x[i, :, channel] = prepped_channel
-        if cfg.verbosity:
+        if verbosity:
             progress_bar("Processed", i, data_x.shape[0])
-    if cfg.verbosity:
+    if verbosity:
         print('\nDone, took ' + str(round(time.time() - start, 1)) + ' seconds')
     return p_data_x
-
-def save_data(data_x, data_y, fnames=[]):
-    """ function : save_data
-
-    saves the preprocessed data to the location specified in global_params.py
-    saves the files as the original filename + 'preprocessed' if the oriinal
-    filenames are given, otherwise as a generic name with target variable in it
-
-    Args:
-        data_x : np.ndarray
-            the ecg data to save
-        data_y : np.ndarray
-            the targetsof the ecg's
-        fnames : list [optional, default: []
-            the filenames of the original files
-
-    """
-    for i, ecg in enumerate(data_x):
-        if fnames:
-            fname = fnames[i][:-4] + "_processed.csv"
-        else:
-            fname = "ecg_" + str(i) + "_" + str(data_y[i]) + ".csv"
-        np.savetxt(
-            cfg.processed_data_saving_location + fname,
-            ecg,
-            delimiter=',',
-            fmt='%i'
-        )
-        print(i, end='\r')
 
 def pulse_scale(pulse, target_size):
     """ function: pulse_scale
@@ -289,11 +262,20 @@ def pulse_scale(pulse, target_size):
         scaled_pulse : np.ndarray
             the scaled pulse
     """
-    interp_function = interp.interp1d(np.arange(pulse.size), pulse)
-    return interp_function(np.linspace(0, pulse.size-1, target_size))
+    scaled_pulse = np.empty(shape=(target_size, pulse.shape[1]))
+    for i in range(pulse.shape[1]):
+        a = np.arange(pulse.shape[0])
+        interp_function = interp.interp1d(a, pulse[:, i])
+        b = np.linspace(0, pulse.shape[0]-1, target_size)
+        scaled_pulse[:, i] = interp_function(b)
+
+    return scaled_pulse
+
+    # interp_function = interp.interp1d(np.arange(pulse.size), pulse)
+    # return interp_function(np.linspace(0, pulse.size-1, target_size))
 
 
-def extract_windows(data_x, data_y, pulse_size=0, exclude_first_channel=False, fnames=[]):
+def extract_windows(data_x, data_y, pulse_size, fnames=[], verbosity=False):
     """ function : extract_windows
 
     extract all pulses from an ecg and scale them to a given size
@@ -315,59 +297,139 @@ def extract_windows(data_x, data_y, pulse_size=0, exclude_first_channel=False, f
             an array of targets of the corresponding pulses
 
     """
-    if not pulse_size:
-        pulse_size = cfg.nn_input_size
-
-    if cfg.verbosity:
+    if verbosity:
         start = time.time()
         print("Extracting and scaling pulses from ECG's...")
     n_samples, n_points, n_channels = data_x.shape
 
     # if exclude_first_channel:
     #     n_channels = max(n_channels - 1, 1)
-    pulses = np.empty(shape=(n_samples*25, pulse_size, 1))
+    pulses = np.empty(shape=(n_samples*25, pulse_size, n_channels))
     pulse_targets = np.empty(shape=(n_samples*25))
     pulse_n = 0
 
+    new_fnames = []
+
     for i, ecg in enumerate(data_x):
-        rpeaks = fextract.get_rpeaks(ecg.T[0])
-        if exclude_first_channel and ecg.shape[1] > 1:
-            ecg = ecg[:, 1:]
-        for channel, signal in enumerate(ecg.T):
-            if len(rpeaks) == 0 or np.isnan(signal.min()):
-                if len(fnames) > i:
-                    warnings.warn("Faulty ECG found:: " + fnames[i])
-                else:
-                    warnings.warn("Faulty ECG found.")
+        # We assume lead 0 is a lead where we can extract rpeaks
+        rpeaks = get_rpeaks(ecg.T[0])
 
-                continue
-            signal = signal[rpeaks[0]:rpeaks[-1]]
-                
-            rpeaks = np.subtract(rpeaks, rpeaks[0])
+        ecg_start = 0
+        for rpeak_n in range(1, len(rpeaks) - 1):
+            pulse = ecg[rpeaks[rpeak_n]:rpeaks[rpeak_n + 1], :]
 
-            for rpeak_n in range(len(rpeaks) - 1):
-                pulse = signal[rpeaks[rpeak_n]:rpeaks[rpeak_n + 1]]
-
-                # some pulses result in errors, we simpy ignore them
-                # NOTE: this may cause bias in the model
-                try:
-                    # scale the data
-                    pulse = pulse_scale(pulse, pulse_size)
-                except:
-                    continue
-
-                # add to new array
-                pulses[pulse_n, :, channel] = pulse
-                pulse_targets[pulse_n] = data_y[i]
-
+            try:
+                pulses[pulse_n, :, :] = pulse_scale(pulse, pulse_size)
                 pulse_n += 1
-        if cfg.verbosity:
+                pulse_targets[pulse_n] = data_y[i]
+                if fnames:
+                    new_fnames.append(fnames[i].split('.')[0] + "_" + str(ecg_start) + ".csv")
+                ecg_start += 1
+            except:
+                pass
+
+        ecg_start = 0
+        if verbosity:
             progress_bar("Extracted pulses from ECG", i, n_samples)
-    if cfg.verbosity:
+    if verbosity:
         print('Done, took ' + str(round(time.time() - start, 1)) + ' seconds')
 
+    if len(fnames) > 0:
+        return pulses[:pulse_n], pulse_targets[:pulse_n], new_fnames
     # make sure the data is of the correct length
     return pulses[:pulse_n], pulse_targets[:pulse_n]
+            
+
+
+
+
+
+
+    #     for channel, signal in enumerate(ecg.T):
+    #         if len(rpeaks) == 0 or np.isnan(signal.min()):
+    #             if len(fnames) > i:
+    #                 warnings.warn("Faulty ECG found:: " + fnames[i])
+    #             else:
+    #                 warnings.warn("Faulty ECG found.")
+
+    #             continue
+    #         signal = signal[rpeaks[0]:rpeaks[-1]]
+                
+    #         rpeaks = np.subtract(rpeaks, rpeaks[0])
+
+    #         # mean_rpeak_distance = int(np.mean(np.diff(rpeaks))/2) # fkhds
+    #         for rpeak_n in range(1, len(rpeaks) - 1):
+    #             pulse = signal[rpeaks[rpeak_n]:rpeaks[rpeak_n + 1]]
+
+
+    #             # pulse_start_index = int((rpeaks[rpeak_n] - mean_rpeak_distance))
+    #             # pulse_end_index = int((rpeaks[rpeak_n] + mean_rpeak_distance))
+    #             # pulse = signal[pulse_start_index:pulse_end_index]
+    #             # import matplotlib.pyplot as plt
+    #             # plt.plot(pulse)
+    #             # plt.show()
+
+    #             # some pulses result in errors, we simpy ignore them
+    #             # NOTE: this may cause bias in the model
+    #             try:
+    #                 # scale the data
+    #                 pulse = pulse_scale(pulse, pulse_size)
+    #             except:
+    #                 continue
+
+    #             # add to new array
+    #             pulses[pulse_n, :, channel] = pulse
+    #             pulse_targets[pulse_n] = data_y[i]
+
+    #             if fnames:
+    #                 new_fnames.append(fnames[i])
+
+    #     pulse_n += 1
+    #     i
+
+    # if len(fnames) > 0:
+    #     return pulses[:pulse_n], pulse_targets[:pulse_n], new_fnames
+    # # make sure the data is of the correct length
+    # return pulses[:pulse_n], pulse_targets[:pulse_n]
+
+def get_rpeaks(ecg):
+    """ function: get_rpeaks
+
+    returns an array of indices of the r peaks in a given ecg
+
+    Args:
+        ecg : np.ndarray
+            an ecg
+    Returns:
+        rpeaks : np.ndarray
+            an array of indices of the r peaks
+    """
+    try:
+        ecg = ecg[:, 0]
+    except:
+        pass
+
+    filtered, _, _ = biosppy_tools.filter_signal(
+        signal = ecg,
+        ftype = 'FIR',
+        band = 'bandpass',
+        order = 150,
+        frequency = [3, 45],
+        sampling_rate = 500
+    )
+    rpeaks, = biosppy_ecg.hamilton_segmenter(
+        signal = filtered,
+        sampling_rate = 500
+    )
+    # correct R-peak locations
+    rpeaks, = biosppy_ecg.correct_rpeaks(
+        signal = filtered,
+        rpeaks = rpeaks,
+        sampling_rate = 500,
+        tol = 0.05
+    )
+
+    return np.array(rpeaks)
 
 if __name__ == "__main__":
     pass

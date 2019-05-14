@@ -1,78 +1,95 @@
 {
-    "data_loading_location": "data/processed_data/",
-    "data_saving_location_fe": "data/feature_data/",
-    "processed_data_saving_location": "data/processed_data/",
+    "processed_data_location": "data/processed_data/",
+    "converted_data_location": "data/converted_data",
+    "pulse_data_location": "data/pulse_data/",
     "raw_data_location": "data/raw_data/",
+    "xml_data_location": "data/xml_data/",
+    "dwt_image_data_location": "data/dwt_image_data/",
     "log_location": "logs/",
-    "model_save_name": "m.h5",
+    "model_save_name": "af.h5",
     "progress_bar_style": "serious",
     "verbosity": true,
     "logging": true,
     "t_width": 80,
     "save_images": true,
+    "predictions_fname": "predictions.csv",
 
     "file_extension": "csv",
     "delimiter": ",",
     "sampling_frequency": 500,
     "interval": 10,
-    "fname_format": "ID_DATE_TIME_TARGET_GENDER_STATE",
+    "fname_format": "ID_DATE_TIME_TARGET_SEX_STATE_PULSENUMBER",
     "n_channels": 8,
     "SR": 0,
     "AF": 1,
 
-    "split_on": "patient_ids",
+    "split_on": "",
     "normalize_data": true,
     "targets": ["SR", "AF"],
     "leads": [0],
     "equal_split_test": true,
     "tvt_split": [0.6, 0.2, 0.2],
+    "min_af_ratio_for_positive_prediction": 0.05,
 
     "nn_input_size": 80,
     "training_batch_size": 32,
     "evaluation_batch_size": 32,
-    "save_on_train": true,
     "layers": [
         {
                 "type": "dense",
                 "nodes": 1024,
                 "dropout": 0.1,
-                "activation": "relu"
+                "activation": "relu",
+                "kernel_regularizer": 0.001,
+                "activity_regularizer": 0.001
         },
         {
                 "type": "dense",
                 "nodes": 512,
                 "dropout": 0.1,
-                "activation": "relu"
+                "activation": "relu",
+                "kernel_regularizer": 0.001,
+                "activity_regularizer": 0.001
         },
         {
                 "type": "dense",
                 "nodes": 256,
                 "dropout": 0.1,
-                "activation": "relu"
+                "activation": "relu",
+                "kernel_regularizer": 0.001,
+                "activity_regularizer": 0.001
         },
         {
                 "type": "dense",
                 "nodes": 128,
                 "dropout": 0.2,
-                "activation": "linear"
+                "activation": "linear",
+                "kernel_regularizer": 0.001,
+                "activity_regularizer": 0.001
         },
         {
                 "type": "dense",
                 "nodes": 64,
                 "dropout": 0.3,
-                "activation": "linear"
+                "activation": "linear",
+                "kernel_regularizer": 0.001,
+                "activity_regularizer": 0.001
         },
         {
                 "type": "dense",
                 "nodes": 32,
                 "dropout": 0.4,
-                "activation": "linear"
+                "activation": "linear",
+                "kernel_regularizer": 0.001,
+                "activity_regularizer": 0.001
         },
         {
                 "type": "dense",
                 "nodes": 16,
                 "dropout": 0.5,
-                "activation": "linear"
+                "activation": "linear",
+                "kernel_regularizer": 0.001,
+                "activity_regularizer": 0.001
         }
     ],
     "output_layer":{
@@ -82,5 +99,5 @@
     "learning_rate":0.0001,
     "decay":0.00001,
     "batch_size":32,
-    "epochs":32
+    "epochs":64
 }

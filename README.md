@@ -10,7 +10,7 @@ Abel Oakley
 
 ### `global_params.py`
 
-	Description:
+    Description:
 		Loads the parameters set in the 'config.json' file.
 
 ---

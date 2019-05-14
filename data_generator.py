@@ -13,11 +13,12 @@ import numpy as np
 from sklearn.preprocessing import scale, normalize
 
 from helpers import progress_bar
-from global_params import cfg
+# from global_params import cfg
+import global_params
 
-from ecg import ECG
+# from ecg import ECG
 
-def filename_info(fname, var):
+def filename_info(fname, var, fmt="", sep="_"):
     """ Extract a given var from a filename
         Args:
             fname : str
@@ -25,13 +26,19 @@ def filename_info(fname, var):
             var : str
                 which attribute to extract (see filename format 
                 in config.json)
-
+            fmt : str [optional, default: ""]
+                the formatting of the filename (which information is where)
+            sep : str [optional, default: "_"]
+                the seperation character in the filenames and fmt
+        Returns:
+            v : str
+                the value of the requested variable from the file name
     """
-    vard = cfg.fname_format.split("_")
-    if fname.endswith(cfg.file_extension):
-        fnamed = fname[:-len(cfg.file_extension)].split("_")
-    else:
-        fnamed = fname.split("_")
+    if fmt == "":
+        fmt = cfg.fname_format
+
+    vard = fmt.split(sep)
+    fnamed = fname.split('.')[0].split(sep)
 
     try:
         v = fnamed[vard.index(var)]
@@ -39,10 +46,11 @@ def filename_info(fname, var):
         raise IOError("Filename does not conform to required format (please change filename or format in config.json)")
     return v
 
-def get_data(n_files=None, split=False, channels=[], norm=False, 
-            targets=[], return_fnames=False, randomize_order=True, 
+def get_data(config=None, n_files=None, split=False, channels=[], 
+            targets=[], return_fnames=False, randomize_order=False, 
             extension='.csv', n_points=None, include_first_channel=False,
-            unique_patients=False):
+            unique_patients=False, location=None, filename_fmt=None, 
+            filename_sep="_", verbosity=None):
     """ function: get_data
 
     returns data in the directory specified in the helpers.py file
@@ -61,8 +69,6 @@ def get_data(n_files=None, split=False, channels=[], norm=False,
             files is while keeping the ration 50/50 (will override n_files)
         channels : (Nonetype or np.array) [optional, default: None]
             indices of channels to return or None for all channels
-        norm : (bool) [optional, default: False]
-            normalize the channels
         targets : (list) [optional, default: []]
             a list of conditions to return
         return_fnames : bool [optional, default: False]
@@ -76,6 +82,9 @@ def get_data(n_files=None, split=False, channels=[], norm=False,
             (for determining rpeaks in data from other channels)
         unique_patients : bool [optional, default: False]
             whether to only use one ecg per patient to reduce bias
+        location : str or Nonetype [optional, default: None]
+            the location to load the data from. if None loads the processed 
+            data location specified in the config
 
     Returns:
         data_x : np.ndarray
@@ -86,6 +95,15 @@ def get_data(n_files=None, split=False, channels=[], norm=False,
         files : list [optional]
             a list of all files
     """
+    if cfg == None:
+        cfg = global_params.cfg
+
+    if delimiter == None:
+        delimiter = cfg.delimiter
+
+    if verbosity == None:
+        verbosity = cfg.verbosity
+
     if cfg.verbosity:
         print("Assembling data from files...")
         start = time.time()
@@ -99,10 +117,13 @@ def get_data(n_files=None, split=False, channels=[], norm=False,
         channels = [0] + channels
         n_channels += 1
 
+    if location == None:
+        location = cfg.processed_data_location
+
     # get a list of all filenames
     used_patients = []
     all_files = []
-    for fname in os.listdir(cfg.data_loading_location):
+    for fname in os.listdir(location):
         if fname.endswith(extension)\
             and (filename_info(fname, "TARGET") in targets or targets == []) \
             and (filename_info(fname, "ID") not in used_patients or not unique_patients):
@@ -172,19 +193,20 @@ def get_data(n_files=None, split=False, channels=[], norm=False,
     for i, fname in enumerate(files):
 
         ecg = np.loadtxt(
-            cfg.data_loading_location + fname,
+            location + fname,
             delimiter=cfg.delimiter,
             dtype=int,
             usecols=channels,
             ndmin=2
         )
 
-        if norm:
+        if cfg.normalize_data:
             # specified by args
             # divide each value in the ecg by the max of its column
-            ecg = ecg / np.amax(ecg, axis=0)[None, :]
+            ecg = ecg / np.amax(np.abs(ecg), axis=0)[None, :]
 
         data_x[i, :, :] = ecg
+        # data_y[i] = 0 if filename_info(fname, "SEX") == "M" else 1
         data_y[i] = getattr(cfg, filename_info(fname, "TARGET")[:2])
 
         if cfg.verbosity:
@@ -197,56 +219,26 @@ def get_data(n_files=None, split=False, channels=[], norm=False,
 
     return data_x, data_y
 
-def get_fe_data():
-    """ function: get_fe_data
-
-    get the data from exctracted features from an csv file
-
-    Args:
-    Returns:
-        x : np.ndarray
-            all features as a 2D array
-        y : np.ndarray
-            all targets as a 1D array
-
-    """
-    all_files = [f for f in os.listdir(cfg.data_saving_location_fe) if f.lower().endswith(".csv")]
-
-    cols = [a for a in range(1, 87)]
-    cols = np.concatenate((np.array([0, 1, 2, 3, 4, 5, 6, 7, 82]), np.arange(10, 62, 2)))
-    df = pd.concat((pd.read_csv(data_loc + f, usecols=cols) for f in all_files))
-
-    plt.matshow(df.corr())
-    plt.show()
-
-    x, y = df.iloc[:, 5:-1].values, df.iloc[:, -1].values
-    x, y = x.astype(np.float32), y.astype(np.float32)
-    x = np.nan_to_num(x)
-
-    x = normalize(x, axis=0, norm='l1')
-
-    return x, y
-
-# def get_data_xml_format():
-#     all_data_x = np.load("data/npy/final_data.npy")
-#     all_data_y = np.load("data/npy/final_labels.npy")
+def get_data_xml_format():
+    all_data_x = np.load("data/npy/final_data.npy")
+    all_data_y = np.load("data/npy/final_labels.npy")
     
-#     print(len(all_data_x))
-#     print(len(all_data_y))
+    print(len(all_data_x))
+    print(len(all_data_y))
 
-#     data = []
+    data = []
 
-#     for patient_id, ecgs in enumerate(all_data_x):
-#         for ecg_i in range(0, len(ecgs), 8):
-#             ecg = np.array(ecgs[ecg_i:ecg_i+8])
-#             data.append(ECG(ecg.T, all_data_y[patient_id], patient_id))
+    for patient_id, ecgs in enumerate(all_data_x):
+        for ecg_i in range(0, len(ecgs), 8):
+            ecg = np.array(ecgs[ecg_i:ecg_i+8])
+            data.append(ECG(ecg.T, all_data_y[patient_id], patient_id))
 
-#     return np.array(data)
+    return np.array(data)
 
 def get_ECG_data(**kwargs):
     """ function: get_ECG_data
 
-    Returns an array of loaded data save din ECG classes
+    Returns an array of loaded data saved in ECG classes
 
     See get_data for args
     """
