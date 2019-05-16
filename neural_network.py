@@ -55,7 +55,7 @@ def split_patients(data_x, data_y, patient_ids, tvt_split):
             test_idx.append(test_ids)
 
 
-def prepare_train_val_data(data_x, data_y, tvt_split, split_on="", patient_ids=[]):
+def prepare_train_val_data(data_x, data_y, tvt_split, split_on="", patient_ids=[], return_idx=False):
     """ function : prepare_train_val_data
 
     splits the data in a training, validation and test set, while maintaining a
@@ -181,6 +181,9 @@ def prepare_train_val_data(data_x, data_y, tvt_split, split_on="", patient_ids=[
         train_idx = idx[:n_train]
         validation_idx = idx[n_train:n_train + n_validation]
         test_idx = idx[n_train + n_validation:n_train + n_validation + n_test]
+
+    if return_idx:
+        return train_idx, validation_idx, test_idx
 
 
     # apply these indices to the input data to get the actual ecg's

@@ -1,6 +1,6 @@
 {
     "processed_data_location": "data/processed_data/",
-    "converted_data_location": "data/converted_data",
+    "converted_data_location": "data/converted_data/",
     "pulse_data_location": "data/pulse_data/",
     "raw_data_location": "data/raw_data/",
     "xml_data_location": "data/xml_data/",
@@ -16,14 +16,14 @@
 
     "file_extension": "csv",
     "delimiter": ",",
-    "sampling_frequency": 500,
-    "interval": 10,
+    "sampling_frequency": 80,
+    "interval": 1,
     "fname_format": "ID_DATE_TIME_TARGET_SEX_STATE_PULSENUMBER",
     "n_channels": 8,
     "SR": 0,
     "AF": 1,
 
-    "split_on": "",
+    "split_on": "patient_id",
     "normalize_data": true,
     "targets": ["SR", "AF"],
     "leads": [0],

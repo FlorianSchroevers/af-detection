@@ -35,7 +35,7 @@ def filename_info(fname, var, fmt="", sep="_"):
                 the value of the requested variable from the file name
     """
     if fmt == "":
-        fmt = cfg.fname_format
+        fmt = global_params.cfg.fname_format
 
     vard = fmt.split(sep)
     fnamed = fname.split('.')[0].split(sep)
@@ -46,7 +46,7 @@ def filename_info(fname, var, fmt="", sep="_"):
         raise IOError("Filename does not conform to required format (please change filename or format in config.json)")
     return v
 
-def get_data(config=None, n_files=None, split=False, channels=[], 
+def get_data(cfg=None, n_files=None, split=False, channels=[], 
             targets=[], return_fnames=False, randomize_order=False, 
             extension='.csv', n_points=None, include_first_channel=False,
             unique_patients=False, location=None, filename_fmt=None, 
@@ -98,8 +98,8 @@ def get_data(config=None, n_files=None, split=False, channels=[],
     if cfg == None:
         cfg = global_params.cfg
 
-    if delimiter == None:
-        delimiter = cfg.delimiter
+    # if delimiter == None:
+    #     delimiter = cfg.delimiter
 
     if verbosity == None:
         verbosity = cfg.verbosity
@@ -119,6 +119,9 @@ def get_data(config=None, n_files=None, split=False, channels=[],
 
     if location == None:
         location = cfg.processed_data_location
+
+    if targets == []:
+        targets = cfg.targets
 
     # get a list of all filenames
     used_patients = []
@@ -195,7 +198,7 @@ def get_data(config=None, n_files=None, split=False, channels=[],
         ecg = np.loadtxt(
             location + fname,
             delimiter=cfg.delimiter,
-            dtype=int,
+            dtype=np.float32,
             usecols=channels,
             ndmin=2
         )

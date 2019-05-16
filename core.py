@@ -108,11 +108,11 @@ def run_training_session(all_data_x, all_data_y, model_save_name, fnames, lead):
 
 def main():
     data_x, data_y, ecg_fnames = dgen.get_data(
-        n_files=10,
+        # n_files=10,
         location=cfg.pulse_data_location,
         return_fnames = True,
         channels = np.array(range(cfg.n_channels)),
-        norm = cfg.normalize_data,
+        # norm = cfg.normalize_data,
         targets = cfg.targets,
         extension = "." + cfg.file_extension
     )

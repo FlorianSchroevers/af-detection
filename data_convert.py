@@ -51,25 +51,32 @@ def get_xml_lead_data(filename):
         ecg_dict = xmltodict.parse(fd.read(), process_namespaces=True)
     mean_wave, leads = ecg_dict['RestingECG']['Waveform']
     patient_id = ecg_dict['RestingECG']['PatientDemographics']['PatientID']
+    sex = ecg_dict['RestingECG']['PatientDemographics']['Gender']
     for k,i in enumerate(leads['LeadData'][:]):
         amp = float(leads['LeadData'][k]['LeadAmplitudeUnitsPerBit'])               
         b64_encoded = ''.join(i['WaveFormData'].split('\n'))
         decoded = base64.b64decode(b64_encoded)
         signal = np.frombuffer(decoded, dtype='int16')
         data_signal.append(np.expand_dims(signal*amp, axis=0))
-    return patient_id, np.concatenate(data_signal).T
+    return patient_id, sex, np.concatenate(data_signal).T
 
 def convert_xmls():
+    zero_padding = np.zeros(shape=(2500, 8))
     for filename in os.listdir(cfg.xml_data_location):
         # checks if file is .XML/.Xml/.xml/etc. file
         if filename.lower().endswith(".xml"):
-            patient_id, data = get_xml_lead_data(cfg.xml_data_location + filename)
-            
+            patient_id, sex, data = get_xml_lead_data(cfg.xml_data_location + filename)
+
+            if data.shape[0] < 5000:
+                data = np.concatenate((data, zero_padding.copy()))
+
             fs = filename[:-4].split("_")
-            file_id = "_".join([patient_id] + fs[1:4])
+            file_id = "_".join([patient_id] + fs[1:3])
             label = get_xml_label(file_id)
 
-            np.savetxt(cfg.converted_data_location + file_id + "_" + label + ".csv", data, delimiter=',', fmt="%d")
+            new_fname = cfg.converted_data_location + file_id + "_" + label + "_" + sex + ".csv"
+
+            np.savetxt(new_fname, data, delimiter=',', fmt="%d")
 
 def save_wavelet_img(time, signal, scales, 
                  waveletname = 'cmor', 
@@ -147,7 +154,6 @@ def save_pulse_data(fmt='%.6f'):
     data, targets, fnames = dgen.get_data(
         # n_files=10,
         return_fnames=True, 
-        norm=True, 
         targets=["AF", "SR"]
     )
 
@@ -167,16 +173,14 @@ def save_pulse_data(fmt='%.6f'):
         )
 
 def convert_and_process():
-    convert_ecgs()
+    # convert_ecgs()
     convert_xmls()
     data_x, data_y, fnames = dgen.get_data(return_fnames=True, location=cfg.converted_data_location)
     processed_data_x = dprep.preprocess_data(data_x)
 
     dprep.save_data(processed_data_x, data_y, cfg.processed_data_location, fnames)
+    save_pulse_data()
 
 if __name__ == "__main__":
-    # data = get_xml_lead_data("data/XML_AFACT/MUSE_20170315_104900_38000.xml")
-    # print(data.shape)
-    # convert_xml()
-    # convert_dwt_images(1)
-    save_pulse_data()
+    # convert_and_process()
+    convert_xmls()
