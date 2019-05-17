@@ -18,6 +18,17 @@ import global_params
 
 # from ecg import ECG
 
+def get_filenames(location, extension, filters):
+    fnames = []
+    for fname in os.listdir(location):
+        if fname.endswith(extension):
+            for var, value in filters.items():
+                if filename_info(fname, var) == value or filename_info(fname, var) in value:
+                    fnames.append(fname)
+
+    return fnames
+
+
 def filename_info(fname, var, fmt="", sep="_"):
     """ Extract a given var from a filename
         Args:
@@ -46,11 +57,10 @@ def filename_info(fname, var, fmt="", sep="_"):
         raise IOError("Filename does not conform to required format (please change filename or format in config.json)")
     return v
 
-def get_data(cfg=None, n_files=None, split=False, channels=[], 
-            targets=[], return_fnames=False, randomize_order=False, 
-            extension='.csv', n_points=None, include_first_channel=False,
-            unique_patients=False, location=None, filename_fmt=None, 
-            filename_sep="_", verbosity=None):
+def get_data(cfg=None, n_files=None, split=False, channels=[], targets=[], 
+            return_fnames=False, randomize_order=False, extension='.csv', 
+            n_points=None, include_first_channel=False, location=None, 
+            filename_fmt=None, filename_sep="_", verbosity=None, open_files=[]):
     """ function: get_data
 
     returns data in the directory specified in the helpers.py file
@@ -104,7 +114,7 @@ def get_data(cfg=None, n_files=None, split=False, channels=[],
     if verbosity == None:
         verbosity = cfg.verbosity
 
-    if cfg.verbosity:
+    if verbosity:
         print("Assembling data from files...")
         start = time.time()
 
@@ -125,16 +135,17 @@ def get_data(cfg=None, n_files=None, split=False, channels=[],
 
     # get a list of all filenames
     used_patients = []
-    all_files = []
-    for fname in os.listdir(location):
-        if fname.endswith(extension)\
-            and (filename_info(fname, "TARGET") in targets or targets == []) \
-            and (filename_info(fname, "ID") not in used_patients or not unique_patients):
-            all_files.append(fname)
-            used_patients.append(filename_info(fname, "ID"))
+
+    if len(open_files) == 0:
+        filters = {}
+        if targets:
+            filters["TARGET"] = targets
+        all_files = get_filenames(location, extension, filters)
+    else:
+        all_files = open_files
 
     # set number of files to all files if target number is not specified
-    if type(n_files) != int or n_files > len(all_files):
+    if type(n_files) != int or n_files != len(all_files):
         n_files = len(all_files)
 
     # handle the case where the data has to be split with specified amount
@@ -188,7 +199,7 @@ def get_data(cfg=None, n_files=None, split=False, channels=[],
         warnings.warn("The amount of files loaded is not the same as the amount requested")
 
     if n_points == None:
-        n_points = cfg.interval * cfg.sampling_frequency
+        n_points = cfg.n_points
 
     data_x = np.empty(shape=(n_files, n_points, n_channels))
     data_y = np.zeros(shape=(n_files, ))
@@ -212,9 +223,9 @@ def get_data(cfg=None, n_files=None, split=False, channels=[],
         # data_y[i] = 0 if filename_info(fname, "SEX") == "M" else 1
         data_y[i] = getattr(cfg, filename_info(fname, "TARGET")[:2])
 
-        if cfg.verbosity:
+        if verbosity:
             progress_bar("Load ECG", i, n_files)
-    if cfg.verbosity:
+    if verbosity:
         print('Done, took ' + str(round(time.time() - start, 1)) + ' seconds')
     if return_fnames:
         # specified by args

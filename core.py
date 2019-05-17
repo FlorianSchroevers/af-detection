@@ -6,6 +6,7 @@ Authors: Florian Schroevers
 import os
 import re
 import datetime
+import math
 
 import numpy as np
 import keras.backend as K
@@ -54,6 +55,55 @@ def write_log(lead, model, r):
             str(cfg.train_size), str(cfg.validation_size), str(cfg.test_size), 
             str(r[0]), str(r[1]), str(r[2]), str(r[3]), str(r[4]), str(r[5]), str(r[6])
         ]) + "\n")
+
+def generator(location, fnames, lead):
+    for fname in fnames:
+        data_x, data_y = dgen.get_data(location=location, open_files=[fname], verbosity=False)
+        yield data_x[:, :, lead], data_y
+
+def main2():
+    filters = {"TARGET": cfg.targets}
+    fnames = dgen.get_filenames(cfg.pulse_data_location, '.' + cfg.file_extension, filters)
+
+    train_idx, validation_idx, test_idx = nn.prepare_train_val_data(
+        np.empty(shape=(len(fnames), )), 
+        np.empty(shape=(len(fnames), )), 
+        cfg.tvt_split,
+        split_on="",
+        patient_ids=[dgen.filename_info(fname, "ID") for fname in fnames],
+        return_idx=True
+    )
+
+    train_fnames = np.array(fnames)[train_idx]
+    validation_fnames = np.array(fnames)[validation_idx]
+    test_fnames = np.array(fnames)[test_idx]
+
+    print(len(train_fnames))
+    print(len(validation_fnames))
+    print(len(test_fnames))
+
+    # print()
+    # quit()
+
+    for lead in cfg.leads:
+        model = nn.ffnet((cfg.nn_input_size, ))
+        model.fit_generator(
+            generator(cfg.pulse_data_location, train_fnames, lead),
+            steps_per_epoch = math.floor(len(train_fnames) / cfg.epochs),
+            epochs = cfg.epochs,
+            validation_data = generator(cfg.pulse_data_location, validation_fnames, lead),
+            validation_steps = math.floor(len(validation_fnames) / cfg.epochs)
+        )
+
+        r = model.evaluate_generator(
+            generator(cfg.pulse_data_location, test_fnames, lead),
+            steps = len(test_fnames)
+        )
+
+        print(r)
+        with open("results.txt", 'w') as fout:
+            fout.write(",".join(list(r)) + "\n")
+
 
 def run_training_session(all_data_x, all_data_y, model_save_name, fnames, lead):
     cfg.current_lead = lead
@@ -142,6 +192,6 @@ if __name__ == "__main__":
     try:
         sess = tf.Session(config=tf.ConfigProto())
         K.set_session(sess)
-        main()
+        main2()
     except KeyboardInterrupt:
         K.clear_session()

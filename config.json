@@ -16,8 +16,7 @@
 
     "file_extension": "csv",
     "delimiter": ",",
-    "sampling_frequency": 80,
-    "interval": 1,
+    "n_points": 80,
     "fname_format": "ID_DATE_TIME_TARGET_SEX_STATE_PULSENUMBER",
     "n_channels": 8,
     "SR": 0,
