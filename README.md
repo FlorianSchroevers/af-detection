@@ -214,12 +214,12 @@ Functions:
 * `get_fourier_coefficients`:
 
 		Description:
-        perform fourier series analysis on a signal and return coefficients
-        for a function that approximate the wave
-        assumes the data is modelled by an even function (f(x) = f(-x)).
-        the function on this page is followed (the second one under cosine series)
-        https://en.wikipedia.org/wiki/Fourier_sine_and_cosine_series.
-        the function that reconstructs this wave is: reconstruct_wave
+            perform fourier series analysis on a signal and return coefficients
+            for a function that approximate the wave
+            assumes the data is modelled by an even function (f(x) = f(-x)).
+            the function on this page is followed (the second one under cosine series)
+            https://en.wikipedia.org/wiki/Fourier_sine_and_cosine_series.
+            the function that reconstructs this wave is: reconstruct_wave
         Args:
             signal : np.ndarray
                 a 1d array containing the signal to perform the analysis on
