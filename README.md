@@ -211,30 +211,15 @@ Functions:
         	ys : ndarray, shape (N)
         		the smoothed signal (or it's n-th derivative).
 
-* `cn`:
-
-		Description:
-        	perform fourier series analysis on a signal and return the nth coefficient
-            for a function that approximate the wave
-
-            assumes the data is modelled by an even function (f(x) = f(-x)).
-            the function on this page is followed (the second one under cosine series)
-            https://en.wikipedia.org/wiki/Fourier_sine_and_cosine_series
-        Args:
-            signal : np.ndarray
-                a 1d array containing the signal to perform the analysis on
-            n : int
-                the nth coefficient to return.
-        Returns:
-            c : int
-                the nth coefficient that approximate the given data
-
 * `get_fourier_coefficients`:
 
 		Description:
-        	uses the function cn (see above) to get an array of coefficients that
-            approximate a given signal
-            the function that reconstructs this wave is: reconstruct_wave
+        perform fourier series analysis on a signal and return coefficients
+        for a function that approximate the wave
+        assumes the data is modelled by an even function (f(x) = f(-x)).
+        the function on this page is followed (the second one under cosine series)
+        https://en.wikipedia.org/wiki/Fourier_sine_and_cosine_series.
+        the function that reconstructs this wave is: reconstruct_wave
         Args:
             signal : np.ndarray
                 a 1d array containing the signal to perform the analysis on
