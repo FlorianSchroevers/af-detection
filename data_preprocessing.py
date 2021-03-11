@@ -2,7 +2,6 @@
 """ File: data_loading.py
     Handles the preprocessing of the data.
 Authors: Florian Schroevers, Flavio Miceli
-
 Functions:
     savitzky_golay
         smooth data
@@ -78,7 +77,6 @@ def savitzky_golay(y, window_size=51, order=4, deriv=0, rate=1):
     .. [2] Numerical Recipes 3rd Edition: The Art of Scientific Computing
        W.H. Press, S.A. Teukolsky, W.T. Vetterling, B.P. Flannery
        Cambridge University Press ISBN-13: 9780521880688
-
     Note: this code was copied from:
     https://scipy.github.io/old-wiki/pages/Cookbook/SavitzkyGolay
     """
@@ -103,40 +101,14 @@ def savitzky_golay(y, window_size=51, order=4, deriv=0, rate=1):
     y = np.concatenate((firstvals, y, lastvals))
     return np.convolve( m[::-1], y, mode='valid')
 
-def cn(signal, n):
-    """ function: cn
-
-    perform fourier series analysis on a signal and return the nth coefficient
-    for a function that approximate the wave
-
-    assumes the data is modelled by an even function (f(x) = f(-x)).
-    the function on this page is followed (the second one under cosine series)
-    https://en.wikipedia.org/wiki/Fourier_sine_and_cosine_series
-
-    Args:
-        signal : np.ndarray
-            a 1d array containing the signal to perform the analysis on
-        n : int
-            the nth coefficient to return.
-
-    Returns:
-        c : int
-            the nth coefficient that approximate the given data
-    """
-    # only works if array is 1d
-    assert signal.ndim == 1
-    tmp1 = np.cos(np.multiply(np.linspace(0, 1, len(signal)), np.pi*n))
-    tmp2 = np.multiply(signal, tmp1)
-    c = (2/len(signal)) * np.sum(tmp2)
-    return c
-
 def get_fourier_coefficients(signal, resolution=600):
     """ function: get_fourier_coefficients
-
-    uses the function cn (see above) to get an array of coefficients that
-    approximate a given signal
+    perform fourier series analysis on a signal and return coefficients
+    for a function that approximate the wave
+    assumes the data is modelled by an even function (f(x) = f(-x)).
+    the function on this page is followed (the second one under cosine series)
+    https://en.wikipedia.org/wiki/Fourier_sine_and_cosine_series.
     the function that reconstructs this wave is: reconstruct_wave
-
     Args:
         signal : np.ndarray
             a 1d array containing the signal to perform the analysis on
@@ -146,20 +118,21 @@ def get_fourier_coefficients(signal, resolution=600):
     Returns:
         coefficients : np.ndarray
             a 1d array containing the coefficients that model the given data
-
     """
     # only works if array is 1d
     assert signal.ndim == 1
-    coefficients = np.array([cn(signal, n) for n in range(resolution)])
+    linspace = np.linspace(0, 1, len(signal)).reshape((-1, 1))
+    pi_n = np.pi * np.arange(resolution).reshape((1, -1))
+    tmp1 = np.cos(linspace @ pi_n)
+    tmp2 = signal.reshape((-1,1)) * tmp1
+    coefficients = (2/len(signal)) * np.sum(tmp2, axis=0)
     return coefficients
 
 def reconstruct_wave(coefficients, signal_length):
     """ function: reconstruct wave
-
     reconstructs a wave using a given set of coefficients using the function as
     seen on this page (first equation under cosine series)
     https://en.wikipedia.org/wiki/Fourier_sine_and_cosine_series
-
     Args:
         coefficients : np.ndarray
             a 1d array of coefficients to reconstruct wave from, such as those
@@ -171,28 +144,18 @@ def reconstruct_wave(coefficients, signal_length):
             a 1d array of length signal_length that approximates the data of
             which the coefficients were extracted
     """
-    L = signal_length
-    # i know this looks like bogus, but it's the correct formula
-    reconstruction = np.array(
-        [
-            coefficients[0] + np.sum(np.array(
-                [
-                    coefficients[n] * np.cos((n*np.pi*x)/L)
-                    for n in range(1, len(coefficients))
-                ]
-            ))
-            for x in range(L)
-        ]
-    )
+    x = np.arange(signal_length).reshape((-1,1))
+    n = np.arange(len(coefficients)).reshape((1,-1))
+    tmp1 = np.cos(((x @ n) * np.pi) / signal_length)
+    coefficients[0]  = coefficients[0] / 2
+    tmp2 = tmp1 * coefficients
+    reconstruction = np.sum(tmp2, axis=1)
     return reconstruction
-    # return np.array([coefficients[0] + np.sum(np.array([coefficients[n] * np.cos((n*np.pi*x)/L)for n in range(1, len(coefficients))]))for x in range(L)])
 
 def fourier_straighten(signal, resolution=20):
     """ function: fourier_straighten
-
     straighten an ecg using a low resolution to obtain ecg baseline, and then
     straightening the ecg by setting the baseline to zero
-
     Args:
         signal : np.ndarray
             the ecg signal to straighten
@@ -212,9 +175,7 @@ def fourier_straighten(signal, resolution=20):
 
 def preprocess_data(data_x, smooth_window_size=51, smooth_order=4, fourier_baseline_resolution=20, verbosity=False):
     """ function: preprocess_data
-
     preprocess the data by smoothing and straightening.
-
     Args:
         data_x : np.ndarray
             the data to preprocess.
@@ -250,9 +211,7 @@ def preprocess_data(data_x, smooth_window_size=51, smooth_order=4, fourier_basel
 
 def pulse_scale(pulse, target_size):
     """ function: pulse_scale
-
     scales an array to a given length, using 1d linear interpolation
-
     Args:
         pulse : np.ndarray
             the array to scale
@@ -277,9 +236,7 @@ def pulse_scale(pulse, target_size):
 
 def extract_windows(data_x, data_y, pulse_size, fnames=[], verbosity=False):
     """ function : extract_windows
-
     extract all pulses from an ecg and scale them to a given size
-
     Args:
         data_x : np.ndarray
             an array of ECG's
@@ -295,7 +252,6 @@ def extract_windows(data_x, data_y, pulse_size, fnames=[], verbosity=False):
             an array of pulses
         pulse_data_y : np.ndarray
             an array of targets of the corresponding pulses
-
     """
     if verbosity:
         start = time.time()
@@ -338,7 +294,7 @@ def extract_windows(data_x, data_y, pulse_size, fnames=[], verbosity=False):
         return pulses[:pulse_n], pulse_targets[:pulse_n], new_fnames
     # make sure the data is of the correct length
     return pulses[:pulse_n], pulse_targets[:pulse_n]
-            
+
 
 
 
@@ -354,7 +310,7 @@ def extract_windows(data_x, data_y, pulse_size, fnames=[], verbosity=False):
 
     #             continue
     #         signal = signal[rpeaks[0]:rpeaks[-1]]
-                
+
     #         rpeaks = np.subtract(rpeaks, rpeaks[0])
 
     #         # mean_rpeak_distance = int(np.mean(np.diff(rpeaks))/2) # fkhds
@@ -394,9 +350,7 @@ def extract_windows(data_x, data_y, pulse_size, fnames=[], verbosity=False):
 
 def get_rpeaks(ecg):
     """ function: get_rpeaks
-
     returns an array of indices of the r peaks in a given ecg
-
     Args:
         ecg : np.ndarray
             an ecg
